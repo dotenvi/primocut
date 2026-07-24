@@ -27,3 +27,8 @@ compatibility that does not exist.
   events log). Redesigned idiomatically from the PoC: bigint primary keys with
   `youtube_*_id`, `jsonb` payloads, real foreign keys with cascading deletes, and
   string-backed enums.
+- Application shell: the PoC design system ported to Tailwind v4 (colour tokens,
+  Manrope/DM Mono, component classes), a dark two-column layout, and a sidebar
+  mirroring the information architecture (global Radar/Activity above per-project
+  Cut Room/Niche/Settings). Navigation is walkable end to end — `root` routes to
+  Radar, with per-project sections rendering placeholder screens for now.
