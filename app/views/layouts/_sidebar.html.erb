@@ -1,0 +1,61 @@
+<%#
+  Sidebar / primary navigation. Mirrors the PoC IA (docs/COMPONENTES.md §216):
+  Radar/Activity are global (cross-project); Cut Room/Niche/Settings hang under
+  each project. Per-project branches use native <details> so they collapse without
+  JS — the active project's branch renders open.
+%>
+<aside class="sticky top-0 h-screen border-r border-line bg-panel px-2.5 py-4 flex flex-col max-[960px]:hidden">
+  <%= link_to root_path, class: "flex items-center gap-2.5 px-2 pb-4 no-underline" do %>
+    <span class="w-5 h-5 rounded border-2 border-accent relative after:content-[''] after:absolute after:inset-[3px] after:bg-accent after:rounded-[1px]"></span>
+    <span class="font-semibold tracking-[0.2em] text-[13px] text-ink">PRIMOCUT</span>
+  <% end %>
+
+  <div class="flex-1 min-h-0 overflow-y-auto flex flex-col">
+    <%= link_to root_path, class: class_names("nav no-underline", "on" => controller_name == "radar") do %>
+      <span class="w-3.5 text-[11px] text-accent">&#9672;</span>Radar
+    <% end %>
+    <%= link_to activity_path, class: class_names("nav no-underline", "on" => controller_name == "activity") do %>
+      <span class="w-3.5 text-[11px] text-ink-3">&#8801;</span>Activity
+    <% end %>
+
+    <div class="pt-4 pb-1 mt-2.5 px-2 border-t border-line"><span class="eyebrow">Projects</span></div>
+
+    <% Project.order(:name).each do |project| %>
+      <% active_project = params[:project_id].to_s == project.id.to_s %>
+      <details class="group" <%= "open" if active_project %>>
+        <summary class="flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] hover:bg-card cursor-pointer list-none marker:hidden [&::-webkit-details-marker]:hidden <%= "text-ink-2" unless active_project %>">
+          <span class="font-mono text-[8px] text-ink-3 w-2 transition-transform group-open:rotate-90">&#9654;</span>
+          <span class="font-medium truncate flex-1"><%= project.name %></span>
+        </summary>
+        <div class="pl-3.5 ml-3 border-l border-line">
+          <%= link_to project_sources_path(project), class: class_names("nav no-underline", "on" => active_project && controller_name == "sources") do %>
+            <span class="w-3.5 text-[11px] text-ink-3">&#9655;</span>Cut Room
+          <% end %>
+          <%= link_to project_niche_path(project), class: class_names("nav no-underline", "on" => active_project && controller_name == "niche") do %>
+            <span class="w-3.5 text-[11px] text-ink-3">&#9636;</span>Niche
+            <span class="ml-auto font-mono text-[10.5px] text-ink-3"><%= project.competitor_channels.count %></span>
+          <% end %>
+          <%= link_to project_settings_path(project), class: class_names("nav no-underline", "on" => active_project && controller_name == "settings") do %>
+            <span class="w-3.5 text-[11px] text-ink-3">&#9881;</span>Settings
+          <% end %>
+        </div>
+      </details>
+    <% end %>
+
+    <% if Project.none? %>
+      <div class="px-2 py-1.5 text-[12.5px] text-ink-3">No projects yet</div>
+    <% end %>
+
+    <%# Project creation is Phase 2/3 — shown for IA parity, not yet wired. %>
+    <div class="flex items-center gap-2 px-2 py-1.5 mt-2 text-[13px] text-ink-3 opacity-50 cursor-not-allowed" title="Coming in a later phase">
+      <span class="font-mono text-[8px] w-2">+</span>New project
+    </div>
+  </div>
+
+  <div class="pt-3 px-2 border-t border-line">
+    <div class="font-mono text-[10px] flex justify-between text-ink-3">
+      <span>YouTube API quota</span>
+      <span class="text-ok">&mdash;</span>
+    </div>
+  </div>
+</aside>

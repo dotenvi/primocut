@@ -9,6 +9,15 @@ Rails.application.routes.draw do
   # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
   # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
 
-  # Defines the root path route ("/")
-  # root "posts#index"
+  # Global navigation (cross-project) — the IA's top level.
+  root "radar#show"
+  get "activity", to: "activity#show"
+
+  # Per-project navigation. Real content lands in Phase 2; these render shell
+  # placeholders for now so the navigation is walkable end to end.
+  scope "projects/:project_id", as: :project do
+    get "sources",  to: "sources#index",  as: :sources
+    get "niche",    to: "niche#show",     as: :niche
+    get "settings", to: "settings#show",  as: :settings
+  end
 end
