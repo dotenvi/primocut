@@ -16,6 +16,20 @@ compatibility that does not exist.
 
 ## [Unreleased]
 
+### Added
+
+- YouTube Data API v3 client (`Adapters::YoutubeApi`) for public data, with
+  quota accounting (units per operation), batched `videos.list`/`channels.list`
+  (50 IDs = 1 unit), paged uploads and top-comment collection, channel-reference
+  resolution (URL/handle/ID → a single `channels.list` call, never `search.list`),
+  and a permanent/terminal error split (`Error`, `CommentsDisabledError`). The
+  HTTP transport is injectable, so the client is exercised without network access.
+  The API key is read from `ENV["YOUTUBE_API_KEY"]`.
+- Cross-cutting `Resilience` helper: retry policy, exponential backoff (capped),
+  and transient-vs-permanent error classification, with an injectable sleeper.
+- `dotenv-rails` (development/test) loads a git-ignored `.env`, with a committed
+  `.env.example` template documenting the required variables (`YOUTUBE_API_KEY`).
+
 ## [0.1.0] - 2026-07-24
 
 ### Added
