@@ -2,7 +2,14 @@
 inherit_gem: { rubocop-rails-omakase: rubocop.yml }
 
 # Overwrite or add rules to create your own house style
-#
-# # Use `[a, [b, c]]` not `[ a, [ b, c ] ]`
-# Layout/SpaceInsideArrayLiteralBrackets:
-#   Enabled: false
+
+# Rails dumps db/*schema.rb as `["a", "b"]` (no inner spaces), which omakase's
+# space style flags. These files are generated — never hand-edited — so exclude
+# them from this one cop (keeping it enforced on hand-written code). Omakase
+# already excludes them from AllCops, but editor linters (e.g. nvim) that pass
+# the file explicitly bypass AllCops:Exclude; a per-cop Exclude is honored
+# regardless of how the file is invoked.
+Layout/SpaceInsideArrayLiteralBrackets:
+  Exclude:
+    - "db/schema.rb"
+    - "db/*_schema.rb"
