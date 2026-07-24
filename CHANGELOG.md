@@ -19,4 +19,11 @@ compatibility that does not exist.
 ### Added
 
 - Repository scaffolding: agent instructions (`AGENTS.md` + `CLAUDE.md`),
-  PostgreSQL via `docker-compose.yml`, and the migration plan under `docs/`.
+  PostgreSQL via `docker-compose.yml`, CI (tests + asset build), and the migration
+  plan under `docs/`.
+- Competitor-domain data foundation — 12 tables as Rails migrations and models
+  (projects, own/competitor channels, competitor videos, channel/video snapshots,
+  packaging changes, video attributes/comments/enrichments, and the append-only
+  events log). Redesigned idiomatically from the PoC: bigint primary keys with
+  `youtube_*_id`, `jsonb` payloads, real foreign keys with cascading deletes, and
+  string-backed enums.
