@@ -18,6 +18,21 @@ compatibility that does not exist.
 
 ### Added
 
+- Competitor-channel registration (`Competitors::ChannelRegistration`): resolves
+  a URL/handle/ID reference, links it to a project, and enqueues an async backfill
+  only when the channel is new to the system (global dedup) or when a known one
+  never finished collecting. Cross-project registration only links; an unreachable
+  queue leaves the channel in `error` rather than stranded. Detach preserves all
+  data and deactivates the channel when it becomes orphaned.
+- Channel backfill (`Competitors::Backfill` + `Competitors::ChannelBackfillJob`):
+  collects the last N uploads into `competitor_videos` with `is_short` and a
+  content-hashed thumbnail, and writes the channel's first channel/video snapshots
+  (so dashboards have data before the first scheduled cycle). API/thumbnail
+  failures degrade without crashing; the channel snapshot is isolated so its
+  failure never costs the uploads. Backfill progress is written incrementally.
+- `Thumbnails` helper: SHA-256 of the thumbnail image bytes (injectable fetcher,
+  degrades to `""`), and `Competitors::Config` value object for the collection
+  knobs (backfill limit, Shorts threshold, recent window).
 - YouTube Data API v3 client (`Adapters::YoutubeApi`) for public data, with
   quota accounting (units per operation), batched `videos.list`/`channels.list`
   (50 IDs = 1 unit), paged uploads and top-comment collection, channel-reference
