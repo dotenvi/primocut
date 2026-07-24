@@ -18,6 +18,13 @@ compatibility that does not exist.
 
 ### Added
 
+- Outlier-crossing events (`Competitors::OutlierEmission`, wired into the snapshot
+  cycle): records an `outlier_crossed` niche event the moment a video steps up to a
+  strictly higher band than the one last emitted (persisted per video), so the
+  crossing survives a score recompute without flapping. Climbing the ladder
+  (relevant → strong → exceptional) emits one event per rung; a video oscillating
+  around a cut emits exactly once; provisional crossings carry `provisional=true`.
+  Channels are scored in isolation, so one failure never breaks the cycle.
 - Competitor snapshot cycle (`Competitors::SnapshotCycle` +
   `Competitors::SnapshotCycleJob`): one collection cycle over the active channels,
   driven by two `config/recurring.yml` cadences — `all` (every video, daily) and
