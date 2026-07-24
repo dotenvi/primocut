@@ -1,0 +1,32 @@
+# Development services for PRIMOCUT.
+#
+# Postgres only: the Rails app and the Python GPU sidecar run on the host, since
+# the sidecar needs direct CUDA access under WSL2.
+#
+#   docker compose up -d      start
+#   docker compose ps         status
+#   docker compose down       stop (data survives in the named volume)
+#   docker compose down -v    stop AND destroy the data
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: primocut-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: primocut
+      POSTGRES_PASSWORD: primocut
+      # Rails creates the _test database itself via db:prepare.
+      POSTGRES_DB: primocut_development
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U primocut -d primocut_development"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

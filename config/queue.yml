@@ -1,0 +1,25 @@
+# The `gpu` queue IS the GPU lock: one thread in one process means one
+# transcription at a time — what the PoC achieved with a Redis lock (`gpu.py`).
+# It is queue configuration, not lock code, and stays portable across backends.
+default: &default
+  dispatchers:
+    - polling_interval: 1
+      batch_size: 500
+  workers:
+    - queues: "default"
+      threads: 3
+      processes: <%= ENV.fetch("JOB_CONCURRENCY", 1) %>
+      polling_interval: 1
+    - queues: "gpu"
+      threads: 1
+      processes: 1
+      polling_interval: 1
+
+development:
+  <<: *default
+
+test:
+  <<: *default
+
+production:
+  <<: *default
