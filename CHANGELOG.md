@@ -18,6 +18,19 @@ compatibility that does not exist.
 
 ### Added
 
+- Competitor snapshot cycle (`Competitors::SnapshotCycle` +
+  `Competitors::SnapshotCycleJob`): one collection cycle over the active channels,
+  driven by two `config/recurring.yml` cadences — `all` (every video, daily) and
+  `recent` (only videos within the recent window, every 6 hours). It records
+  channel/video snapshots at one shared instant, detects newly published videos
+  and packaging changes (title, and thumbnail by byte hash even under an unchanged
+  URL — emitting a `packaging_changed` niche event), then persists the derived
+  metrics the data model asks for: syntactic title attributes
+  (`Metrics::Attributes.refresh_syntactic_attributes`, content-hash gated) and
+  packaging impact once its window elapses (`Metrics::Impact`). Channels are
+  processed in isolation (one failure never aborts the cycle; orphaned channels are
+  excluded), and each cycle appends a born-resolved `cycle_done` ops record with its
+  quota accounting.
 - Competitor-channel registration (`Competitors::ChannelRegistration`): resolves
   a URL/handle/ID reference, links it to a project, and enqueues an async backfill
   only when the channel is new to the system (global dedup) or when a known one
