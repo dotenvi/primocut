@@ -27,12 +27,12 @@ module Metrics
 
     def call
       videos = @channel.competitor_videos.to_a
-      views_by_id = latest_views(videos.map(&:id))
+      views_by_id = PeerWindow.latest_views(videos.map(&:id))
       cutoffs = @config.band_cutoffs
       provisional_cut = @now - (@config.outlier_provisional_days * 86_400)
 
       rulers = FORMATS.to_h do |fmt, is_short|
-        peers = window_peers(videos, views_by_id, is_short:)
+        peers = PeerWindow.select(videos, views_by_id, is_short:, now: @now, config: @config)
         peer_views = peers.map { |v| views_by_id[v.id] }
         ruler = Core.band_ruler(peer_views, basis: @config.band_basis, cutoffs:, min_sample: @config.outlier_min_sample)
         [ fmt, ruler ]
@@ -56,32 +56,5 @@ module Metrics
     private
 
     def format_of(video) = video.is_short ? "short" : "long"
-
-    # The same-format rolling window that feeds the band ruler: the smaller of "the
-    # last N videos" and "the last D days", scored videos only. This is the SINGLE
-    # definition of the peer set — the ruler and the spread histogram both read it,
-    # so a channel's classification and its distribution never diverge.
-    def window_peers(videos, views_by_id, is_short:)
-      window_cut = @now - (@config.outlier_window_days * 86_400)
-      peers = videos.select do |v|
-        v.is_short == is_short && !v.published_at.nil? &&
-          v.published_at >= window_cut && views_by_id.key?(v.id)
-      end
-      peers.sort_by { |v| [ v.published_at, v.id ] }.reverse.first(@config.outlier_window_videos)
-    end
-
-    # Latest snapshot views per video id → { id => views }. DISTINCT ON is the
-    # Postgres idiom for "one row per group"; it lives here (not behind a Repository,
-    # §2.5) as a single visible query to tune if a dashboard ever proves slow. The
-    # id tiebreak keeps the pick deterministic when two snapshots share captured_at.
-    def latest_views(video_ids)
-      return {} if video_ids.empty?
-
-      VideoSnapshot
-        .where(competitor_video_id: video_ids)
-        .select("DISTINCT ON (competitor_video_id) competitor_video_id, views")
-        .order("competitor_video_id, captured_at DESC, id DESC")
-        .each_with_object({}) { |snap, acc| acc[snap.competitor_video_id] = snap.views }
-    end
   end
 end
