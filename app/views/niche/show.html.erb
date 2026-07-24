@@ -1,5 +1,106 @@
 <% content_for :title, "Niche — #{@project.name}" %>
-<%= render "shared/placeholder",
-      eyebrow: @project.name,
-      title: "Niche",
-      note: "Patterns, outliers and competitor channels for this niche. The read-only metrics slice lands in Phase 2." %>
+
+<div class="flex items-end justify-between gap-3 mb-5">
+  <div>
+    <div class="eyebrow"><%= @project.name %></div>
+    <h1>Niche</h1>
+  </div>
+</div>
+
+<%# Tabs — server-rendered via ?tab=, matching the PoC IA (patterns/outliers/channels). %>
+<div class="flex border-b border-line mb-5">
+  <% NicheController::TABS.each do |t| %>
+    <%= link_to t.capitalize, project_niche_path(@project, tab: t),
+          class: class_names("tab no-underline", "on" => @tab == t) %>
+  <% end %>
+</div>
+
+<% if @tab == "channels" %>
+  <% channels = @dashboard[:channels] %>
+  <% if channels.empty? %>
+    <p class="m">No competitor tracked yet. <span class="text-ink-3">Channel tracking lands in Phase 3.</span></p>
+  <% else %>
+    <table class="w-full border-collapse text-[13px]">
+      <thead><tr><th>Competitor</th><th class="text-right">Subscribers</th></tr></thead>
+      <tbody>
+        <% channels.each do |c| %>
+          <tr class="hover:bg-[#15181C]">
+            <td><%= c[:title].presence || c[:channel_id] %></td>
+            <td class="text-right font-mono text-[12px]"><%= compact_number(c[:subscribers]) %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% end %>
+<% else %>
+  <% key = @tab == "outliers" ? :outliers : :patterns %>
+  <div class="flex gap-1.5 mb-4">
+    <%= link_to project_niche_path(@project, tab: @tab, fmt: "long"),
+          class: class_names("chip no-underline", "on" => @fmt == "long") do %>
+      Long-form <%= @dashboard[key]["long"].length %>
+    <% end %>
+    <%= link_to project_niche_path(@project, tab: @tab, fmt: "short"),
+          class: class_names("chip no-underline", "on" => @fmt == "short") do %>
+      Shorts <%= @dashboard[key]["short"].length %>
+    <% end %>
+  </div>
+
+  <% if @tab == "patterns" %>
+    <% patterns = @dashboard[:patterns][@fmt] %>
+    <p class="text-ink-2 mb-4 max-w-[640px]">Attributes among definitive outliers (p90 and above) versus the same-format control, reported only when their 95% Wilson intervals separate.</p>
+    <% if patterns.empty? %>
+      <p class="m">No attribute separates outliers from the control group yet.</p>
+    <% else %>
+      <table class="w-full border-collapse text-[13px]">
+        <thead><tr>
+          <th>Attribute</th><th>Source</th>
+          <th class="text-right">Outliers</th><th class="text-right">Control</th>
+          <th class="text-right">Lift</th><th class="text-right">n</th>
+        </tr></thead>
+        <tbody>
+          <% patterns.each do |p| %>
+            <tr class="hover:bg-[#15181C]">
+              <td class="font-mono text-[12px]"><%= p[:attribute] %></td>
+              <td><span class="tag bg-card2 text-ink-2 border-line-strong"><%= p[:source] %></span></td>
+              <td class="text-right font-mono text-[12px]"><%= pct_ci(p[:freq_outlier], p[:ci_outlier]) %></td>
+              <td class="text-right font-mono text-[12px]"><%= pct_ci(p[:freq_control], p[:ci_control]) %></td>
+              <td class="text-right font-mono text-[12px] <%= lift_class(p[:lift]) %>"><%= multiplier(p[:lift]) %></td>
+              <td class="text-right font-mono text-[12px] text-ink-3"><%= p[:n_outlier] %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% end %>
+  <% else %>
+    <% outliers = @dashboard[:outliers][@fmt] %>
+    <% if outliers.empty? %>
+      <p class="m">No outlier in this format yet.</p>
+    <% else %>
+      <table class="w-full border-collapse text-[13px]">
+        <thead><tr>
+          <th class="w-7 text-right">#</th><th>Video</th><th>Channel</th>
+          <th class="text-right">Band</th><th class="text-right">× median</th>
+          <th class="text-right">VPH</th><th class="text-right">Views</th>
+        </tr></thead>
+        <tbody>
+          <% outliers.each_with_index do |o, i| %>
+            <tr class="hover:bg-[#15181C]">
+              <td class="text-right font-mono text-[12px] text-ink-3"><%= i + 1 %></td>
+              <td>
+                <%= o[:title].presence || o[:video_id] %>
+                <% if o[:provisional] %><span class="m text-accent"> · provisional</span><% end %>
+              </td>
+              <td class="text-ink-2"><%= o[:channel_title].presence || o[:channel_id] %></td>
+              <td class="text-right">
+                <% if o[:band] %><span class="tag bg-heat-bg99 text-heat-99 border-heat-ln99"><%= band_tag(o) %></span><% end %>
+              </td>
+              <td class="text-right font-mono text-[12px]"><%= multiplier(o[:median_multiple]) %></td>
+              <td class="text-right font-mono text-[12px]"><%= vph_label(o[:current_vph]) %></td>
+              <td class="text-right font-mono text-[12px]"><%= compact_number(o[:views]) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% end %>
+  <% end %>
+<% end %>
