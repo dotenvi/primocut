@@ -1,0 +1,7 @@
+<%# One Radar feed row. Rich per-type rendering (distribution strip, band evidence)
+    refines in Phase 3 once the event types are emitted; this is the generic form. %>
+<div class="ev <%= "seen" if local_assigns[:seen] %>">
+  <span class="tag bg-card2 text-ink-2 border-line-strong"><%= event.event_type.humanize %></span>
+  <span class="flex-1"><%= event.payload["title"].presence || event.payload["message"].presence || "—" %></span>
+  <span class="m text-ink-3"><%= time_ago_in_words(event.occurred_at) %> ago</span>
+</div>

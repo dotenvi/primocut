@@ -1,5 +1,26 @@
 <% content_for :title, "Activity — Primocut" %>
-<%= render "shared/placeholder",
-      eyebrow: "Global",
-      title: "Activity",
-      note: "The full activity log across projects, including YouTube API quota usage. Wired up in Phase 2." %>
+
+<div class="flex items-end justify-between gap-3 mb-5">
+  <div><div class="eyebrow">Global</div><h1>Activity</h1></div>
+  <div class="m">YouTube API quota <span class="text-ok"><%= @quota ? compact_number(@quota) : "—" %></span></div>
+</div>
+
+<% if @events.empty? %>
+  <div class="card max-w-[560px]">
+    <p class="text-ink-2 m-0">No activity yet. The log fills as collection runs.</p>
+  </div>
+<% else %>
+  <table class="w-full border-collapse text-[13px]">
+    <thead><tr><th>When</th><th>Category</th><th>Event</th><th>Severity</th></tr></thead>
+    <tbody>
+      <% @events.each do |e| %>
+        <tr class="hover:bg-[#15181C]">
+          <td class="text-ink-2"><%= time_ago_in_words(e.occurred_at) %> ago</td>
+          <td><%= e.category %></td>
+          <td class="font-mono text-[12px]"><%= e.event_type %></td>
+          <td><%= e.severity == "error" ? content_tag(:span, "error", class: "tag bg-err-bg text-err border-err-line") : e.severity %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% end %>

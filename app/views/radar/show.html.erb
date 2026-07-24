@@ -1,5 +1,30 @@
 <% content_for :title, "Radar — Primocut" %>
-<%= render "shared/placeholder",
-      eyebrow: "Global",
-      title: "Radar",
-      note: "The cross-project event feed — every niche's outlier crossings and ops alerts in one place. Wired up in Phase 2." %>
+
+<div class="flex items-end justify-between gap-3 mb-5">
+  <div><div class="eyebrow">Global</div><h1>Radar</h1></div>
+</div>
+
+<% if @projects.any? %>
+  <div class="flex gap-1.5 mb-5 flex-wrap">
+    <%= link_to "All", root_path, class: class_names("chip no-underline", "on" => @project.nil?) %>
+    <% @projects.each do |p| %>
+      <%= link_to p.name, root_path(project_id: p.id),
+            class: class_names("chip no-underline", "on" => @project&.id == p.id) %>
+    <% end %>
+  </div>
+<% end %>
+
+<% if @unseen.empty? && @seen.empty? %>
+  <div class="card max-w-[560px]">
+    <p class="text-ink-2 m-0">Nothing on the radar yet. Outlier crossings and niche alerts appear here as the competitor snapshot cycle runs.</p>
+  </div>
+<% else %>
+  <% if @unseen.any? %>
+    <div class="lbl mb-2">New</div>
+    <%= render partial: "event", collection: @unseen, as: :event %>
+  <% end %>
+  <% if @seen.any? %>
+    <div class="lbl mt-6 mb-2">Earlier</div>
+    <%= render partial: "event", collection: @seen, as: :event, locals: { seen: true } %>
+  <% end %>
+<% end %>
