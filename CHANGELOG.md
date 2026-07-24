@@ -16,6 +16,8 @@ compatibility that does not exist.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-07-24
+
 ### Added
 
 - Repository scaffolding: agent instructions (`AGENTS.md` + `CLAUDE.md`),
@@ -41,3 +43,6 @@ compatibility that does not exist.
   Screens: Niche (patterns / outliers / channels), the channel dashboard, video
   detail with the channel-spread strip, and the Radar feed and Activity log — all
   drilling down through project → channel → video with per-project leakage guards.
+
+[unreleased]: https://github.com/dotenvi/primocut/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/dotenvi/primocut/releases/tag/v0.1.0
