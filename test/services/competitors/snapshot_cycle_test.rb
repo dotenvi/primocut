@@ -236,6 +236,27 @@ class Competitors::SnapshotCycleTest < ActiveSupport::TestCase
     assert_equal 1, ev.payload["videos"]
   end
 
+  test "a real cycle emits outlier_crossed through the pipeline" do
+    ch = seed_channel
+    # 12 long-format peers at the median baseline (relevant >= 3000 under fixed_multiple).
+    12.times do |i|
+      peer = seed_video(ch, "p#{i}", title: "Peer #{i}", published_at: NOW - (40 + i).days, duration_s: 600, is_short: false)
+      peer.video_snapshots.create!(captured_at: NOW - 1.day, views: 1000, likes: 1, comments: 1)
+    end
+    yt = FakeYouTube.new
+    yt.uploads = { "UUUCc" => [ "v1" ] } # a fresh target at the top of the uploads
+    yt.videos = { "v1" => vinfo("v1", title: "Target", views: 3000, published: NOW - 30.days) }
+
+    Competitors::SnapshotCycle.new(
+      client: yt, thumbnail_fetcher: FakeThumbs.new, metrics_config: Metrics::Config.new(band_basis: "fixed_multiple")
+    ).call(scope: "all", now: NOW)
+
+    ev = Event.find_by(event_type: "outlier_crossed")
+    assert_not_nil ev
+    assert_equal "relevant", ev.payload["band"]
+    assert_equal "v1", CompetitorVideo.find(ev.competitor_video_id).youtube_video_id
+  end
+
   test "rejects an unknown scope" do
     assert_raises(ArgumentError) { run_cycle("weekly", FakeYouTube.new) }
   end

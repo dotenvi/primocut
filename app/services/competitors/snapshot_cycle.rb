@@ -18,9 +18,11 @@ module Competitors
   class SnapshotCycle
     VALID_SCOPES = %w[all recent].freeze
 
-    def initialize(client:, config: Config.new, thumbnail_fetcher: Thumbnails.method(:fetch_bytes))
+    def initialize(client:, config: Config.new, metrics_config: Metrics::Config.new,
+                   thumbnail_fetcher: Thumbnails.method(:fetch_bytes))
       @client = client
       @config = config
+      @metrics_config = metrics_config
       @thumbnail_fetcher = thumbnail_fetcher
     end
 
@@ -52,6 +54,12 @@ module Competitors
       # whose window has elapsed. Isolated so a failure here never affects the
       # collected snapshots.
       persist_metrics_artifacts(targets, now:)
+
+      # Emission: record `outlier_crossed` for videos that stepped up a band, with
+      # the anti-flapping guard. Reads the snapshots just persisted; isolated so a
+      # scoring error never breaks the cycle. Comment collection (a later slice) will
+      # consume the events it writes.
+      emit_outlier_events(targets, now:)
 
       result = {
         scope:, channels: channels_done, videos: videos_done,
@@ -159,10 +167,16 @@ module Competitors
     def persist_metrics_artifacts(channels, now:)
       video_ids = CompetitorVideo.where(competitor_channel_id: channels.map(&:id)).pluck(:youtube_video_id)
       attrs = Metrics::Attributes.refresh_syntactic_attributes(video_ids)
-      filled = Metrics::Impact.backfill_packaging_impact(now:)
+      filled = Metrics::Impact.backfill_packaging_impact(now:, config: @metrics_config)
       Rails.logger.info("metrics artifacts: #{attrs} attribute row(s), #{filled} packaging impact(s)")
     rescue StandardError => e # never let persistence break the collection cycle
       Rails.logger.error("metrics artifact persistence failed: #{e.message}")
+    end
+
+    def emit_outlier_events(channels, now:)
+      OutlierEmission.new(config: @metrics_config, now:).call(channels)
+    rescue StandardError => e # never let emission break the collection cycle
+      Rails.logger.error("outlier emission failed: #{e.message}")
     end
 
     # A born-resolved ops record of the cycle: it carries the quota accounting the
