@@ -44,5 +44,27 @@ module Metrics
     def title_content_hash(title)
       Digest::SHA256.hexdigest(title.to_s)
     end
+
+    # Upsert the syntactic attributes for the given videos, recomputing only when
+    # the title's content hash changed (so a row is shared across cycles and only
+    # rewritten on a real title change). Returns the number of rows written.
+    # Ported from the PoC `metrics/attributes.py`; the write deferred out of the
+    # read-only metrics slice into the collection phase.
+    def refresh_syntactic_attributes(video_ids)
+      written = 0
+      Array(video_ids).each do |video_id|
+        video = CompetitorVideo.find_by(youtube_video_id: video_id)
+        next if video.nil?
+
+        content_hash = title_content_hash(video.title)
+        existing = video.video_attributes.find_by(source: SOURCE)
+        next if existing && existing.content_hash == content_hash # title unchanged
+
+        row = video.video_attributes.find_or_initialize_by(source: SOURCE)
+        row.update!(attrs: syntactic_attributes(video.title), content_hash:, state: "done", error: "")
+        written += 1
+      end
+      written
+    end
   end
 end

@@ -1,0 +1,242 @@
+require "test_helper"
+
+# Tests for the continuous-collection cycle (YouTube API + thumbnail download
+# fully faked, no network). Covers frequency selection (all vs recent), snapshot
+# recording, new-video detection, title change, thumbnail change under an
+# UNCHANGED URL (byte hash), per-channel isolation, orphan exclusion, the
+# cycle_done ops record and per-cycle quota accounting. Ported from the PoC
+# `tests/test_snapshot_cycle.py`.
+class Competitors::SnapshotCycleTest < ActiveSupport::TestCase
+  Api = Adapters::YoutubeApi
+  NOW = Time.utc(2026, 7, 14, 12, 0, 0)
+
+  # A fake YoutubeApi with in-memory quota accounting.
+  class FakeYouTube
+    attr_accessor :channel_stats, :uploads, :videos, :fail_channels
+    attr_reader :units_used
+
+    def initialize
+      @channel_stats = {}   # channel_id -> ChannelStats
+      @uploads = {}         # playlist_id -> top video ids
+      @videos = {}          # video_id -> VideoInfo
+      @fail_channels = Set.new
+      @units_used = 0
+    end
+
+    def get_channels_stats(ids)
+      @units_used += 1
+      ids.filter_map do |cid|
+        raise Api::Error, "boom #{cid}" if @fail_channels.include?(cid)
+
+        @channel_stats[cid]
+      end
+    end
+
+    def list_uploads_video_ids(playlist_id, limit: 15)
+      @units_used += 1
+      (@uploads[playlist_id] || []).first(limit)
+    end
+
+    def list_videos(video_ids)
+      @units_used += (video_ids.size + 49) / 50 if video_ids.any?
+      video_ids.filter_map { |v| @videos[v] }
+    end
+  end
+
+  # Thumbnail byte source keyed by URL (default: the URL's own bytes).
+  class FakeThumbs
+    attr_reader :content
+
+    def initialize = @content = {}
+    def call(url) = @content.fetch(url, url)
+  end
+
+  def h(data) = Digest::SHA256.hexdigest(data)
+
+  def vinfo(vid, title: "T", thumb: "", views: 100, likes: 10, comments: 1, published: nil)
+    Api::VideoInfo.new(
+      video_id: vid, title:, published_at: published, duration_s: 600,
+      thumbnail_url: thumb, view_count: views, like_count: likes, comment_count: comments
+    )
+  end
+
+  def seed_channel(cid = "UCc", active: true)
+    CompetitorChannel.create!(youtube_channel_id: cid, uploads_playlist_id: "UU#{cid}", active:)
+  end
+
+  def seed_video(channel, vid, **attrs)
+    channel.competitor_videos.create!(youtube_video_id: vid, **attrs)
+  end
+
+  def run_cycle(scope, yt, thumbs: FakeThumbs.new, now: NOW)
+    Competitors::SnapshotCycle.new(client: yt, thumbnail_fetcher: thumbs).call(scope:, now:)
+  end
+
+  def snapshotted_ids = CompetitorVideo.joins(:video_snapshots).distinct.pluck(:youtube_video_id)
+
+  # ------------------------- frequency selection -------------------------
+
+  test "recent scope selects only young videos" do
+    ch = seed_channel
+    seed_video(ch, "vold", title: "old", published_at: NOW - 30.days)
+    seed_video(ch, "vnew", title: "new", published_at: NOW - 2.days)
+    yt = FakeYouTube.new
+    yt.videos = { "vold" => vinfo("vold", title: "old"), "vnew" => vinfo("vnew", title: "new") }
+
+    run_cycle("recent", yt)
+
+    assert_equal [ "vnew" ], snapshotted_ids # < 7 days only
+  end
+
+  test "all scope selects every video" do
+    ch = seed_channel
+    seed_video(ch, "vold", title: "old", published_at: NOW - 30.days)
+    seed_video(ch, "vnew", title: "new", published_at: NOW - 2.days)
+    yt = FakeYouTube.new
+    yt.videos = { "vold" => vinfo("vold", title: "old"), "vnew" => vinfo("vnew", title: "new") }
+
+    run_cycle("all", yt)
+
+    assert_equal %w[vnew vold], snapshotted_ids.sort
+  end
+
+  # ------------------------- snapshot recording -------------------------
+
+  test "records channel and video snapshots at one shared instant" do
+    ch = seed_channel
+    seed_video(ch, "v1", title: "T", published_at: NOW - 1.day)
+    yt = FakeYouTube.new
+    yt.channel_stats = { "UCc" => Api::ChannelStats.new(channel_id: "UCc", subscribers: 1200, total_views: 99, video_count: 42) }
+    yt.videos = { "v1" => vinfo("v1", views: 500, likes: 40, comments: 3) }
+
+    run_cycle("all", yt)
+
+    cs = ChannelSnapshot.sole
+    assert_equal [ 1200, 42 ], [ cs.subscribers, cs.video_count ]
+    vs = VideoSnapshot.sole
+    assert_equal [ 500, 40, 3 ], [ vs.views, vs.likes, vs.comments ]
+    assert_equal NOW, cs.captured_at
+    assert_equal NOW, vs.captured_at
+  end
+
+  # ------------------------- new-video detection -------------------------
+
+  test "new video detected, added and snapshotted" do
+    ch = seed_channel
+    seed_video(ch, "vknown", title: "known", published_at: NOW - 3.days)
+    yt = FakeYouTube.new
+    yt.uploads = { "UUUCc" => [ "vfresh", "vknown" ] } # vfresh is new at the top
+    yt.videos = {
+      "vknown" => vinfo("vknown"),
+      "vfresh" => vinfo("vfresh", title: "fresh", published: NOW - 1.hour)
+    }
+
+    run_cycle("all", yt)
+
+    assert CompetitorVideo.exists?(youtube_video_id: "vfresh") # added to competitor_videos
+    assert_includes snapshotted_ids, "vfresh" # snapshotted
+  end
+
+  # ------------------------- packaging changes -------------------------
+
+  test "title change recorded and stored title updated" do
+    ch = seed_channel
+    url = "https://i.ytimg.com/vi/v1/hq.jpg"
+    # Seed a matching thumbnail hash so only the title differs.
+    seed_video(ch, "v1", title: "Old title", thumbnail_url: url, thumbnail_hash: h(url), published_at: NOW - 1.day)
+    yt = FakeYouTube.new
+    yt.videos = { "v1" => vinfo("v1", title: "New title", thumb: url) }
+
+    res = run_cycle("all", yt)
+
+    change = PackagingChange.sole
+    assert change.field_title?
+    assert_equal [ "Old title", "New title" ], [ change.old_value, change.new_value ]
+    assert_equal "New title", CompetitorVideo.find_by(youtube_video_id: "v1").title
+    assert_equal 1, res[:packaging_changes]
+    assert_equal 1, Event.where(event_type: "packaging_changed").count
+  end
+
+  test "thumbnail change detected with an unchanged url" do
+    ch = seed_channel
+    url = "https://i.ytimg.com/vi/v1/hq.jpg" # stays the same across the change
+    seed_video(ch, "v1", title: "T", thumbnail_url: url, thumbnail_hash: h("old-bytes"), published_at: NOW - 1.day)
+    thumbs = FakeThumbs.new
+    thumbs.content[url] = "new-bytes" # same URL, different image bytes
+    yt = FakeYouTube.new
+    yt.videos = { "v1" => vinfo("v1", title: "T", thumb: url) }
+
+    run_cycle("all", yt, thumbs:)
+
+    change = PackagingChange.sole
+    assert change.field_thumbnail?
+    assert_equal h("old-bytes"), change.old_value
+    assert_equal h("new-bytes"), change.new_value
+    v = CompetitorVideo.find_by(youtube_video_id: "v1")
+    assert_equal url, v.thumbnail_url            # URL unchanged
+    assert_equal h("new-bytes"), v.thumbnail_hash # hash updated
+  end
+
+  # ------------------------- isolation / orphans / quota -------------------------
+
+  test "per channel isolation" do
+    bad = seed_channel("UCbad")
+    ok = seed_channel("UCok")
+    seed_video(bad, "vbad", published_at: NOW - 1.day)
+    seed_video(ok, "vok", published_at: NOW - 1.day)
+    yt = FakeYouTube.new
+    yt.fail_channels = Set.new([ "UCbad" ]) # its channel-stats call raises
+    yt.videos = { "vbad" => vinfo("vbad"), "vok" => vinfo("vok") }
+
+    res = run_cycle("all", yt)
+
+    assert_equal [ "vok" ], snapshotted_ids # the good channel still collected
+    assert_equal 1, res[:channels]          # only UCok completed; UCbad was isolated
+  end
+
+  test "orphan channel excluded" do
+    ch = seed_channel("UCorph", active: false) # deactivated → out of the cycle
+    seed_video(ch, "v1", published_at: NOW - 1.day)
+    yt = FakeYouTube.new
+    yt.videos = { "v1" => vinfo("v1") }
+
+    res = run_cycle("all", yt)
+
+    assert_equal 0, res[:channels]
+    assert_equal 0, VideoSnapshot.count
+  end
+
+  test "per cycle quota accounting" do
+    ch = seed_channel
+    seed_video(ch, "v1", published_at: NOW - 1.day)
+    yt = FakeYouTube.new
+    yt.channel_stats = { "UCc" => Api::ChannelStats.new(channel_id: "UCc", subscribers: 1, total_views: 1, video_count: 1) }
+    yt.uploads = { "UUUCc" => [ "v1" ] }
+    yt.videos = { "v1" => vinfo("v1") }
+
+    res = run_cycle("all", yt)
+
+    # 1 (channel stats) + 1 (uploads scan) + 1 (videos.list batch) = 3 units.
+    assert_equal 3, res[:quota_units]
+    assert_equal 3, yt.units_used
+  end
+
+  test "records a born-resolved cycle_done ops event" do
+    ch = seed_channel
+    seed_video(ch, "v1", published_at: NOW - 1.day)
+    yt = FakeYouTube.new
+    yt.videos = { "v1" => vinfo("v1") }
+
+    run_cycle("all", yt)
+
+    ev = Event.find_by(category: "ops", event_type: "cycle_done")
+    assert_not_nil ev
+    assert_equal NOW, ev.resolved_at # born resolved → never an open alert
+    assert_equal "all", ev.payload["scope"]
+    assert_equal 1, ev.payload["videos"]
+  end
+
+  test "rejects an unknown scope" do
+    assert_raises(ArgumentError) { run_cycle("weekly", FakeYouTube.new) }
+  end
+end

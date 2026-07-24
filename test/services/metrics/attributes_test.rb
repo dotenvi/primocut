@@ -27,4 +27,29 @@ class Metrics::AttributesTest < ActiveSupport::TestCase
     assert_equal A.title_content_hash("Same"), A.title_content_hash("Same")
     refute_equal A.title_content_hash("A"), A.title_content_hash("B")
   end
+
+  def video(title:, youtube_video_id: "v1")
+    ch = CompetitorChannel.create!(youtube_channel_id: "UCc0000000000000000000")
+    ch.competitor_videos.create!(youtube_video_id:, title:)
+  end
+
+  test "refresh persists and is idempotent" do
+    v = video(title: "Original title?")
+
+    assert_equal 1, A.refresh_syntactic_attributes([ "v1" ])
+    assert_equal true, v.video_attributes.find_by(source: A::SOURCE).attrs["has_question"]
+
+    # Same title → no-op (content hash unchanged).
+    assert_equal 0, A.refresh_syntactic_attributes([ "v1" ])
+
+    # Changing the title triggers a single-row recompute (upserted, not duplicated).
+    v.update!(title: "No question now")
+    assert_equal 1, A.refresh_syntactic_attributes([ "v1" ])
+    assert_equal 1, v.video_attributes.where(source: A::SOURCE).count
+    assert_equal false, v.video_attributes.find_by(source: A::SOURCE).attrs["has_question"]
+  end
+
+  test "refresh skips unknown videos" do
+    assert_equal 0, A.refresh_syntactic_attributes([ "nope" ])
+  end
 end
