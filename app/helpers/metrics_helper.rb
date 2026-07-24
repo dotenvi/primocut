@@ -2,6 +2,9 @@
 # so the numbers read identically (compact counts, percentages with Wilson
 # intervals, multipliers, VPH). Presentation only — no business logic.
 module MetricsHelper
+  # Weekday labels in the cadence chart's order (Monday = 0, matching Core#cadence).
+  WEEKDAYS = %w[Mon Tue Wed Thu Fri Sat Sun].freeze
+
   # Compact count: 1234 -> "1.2k", 3_400_000 -> "3.4M". "—" for nil.
   def compact_number(n)
     return "—" if n.nil?

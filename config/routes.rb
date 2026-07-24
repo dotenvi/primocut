@@ -18,6 +18,7 @@ Rails.application.routes.draw do
   scope "projects/:project_id", as: :project do
     get "sources",  to: "sources#index",  as: :sources
     get "niche",    to: "niche#show",     as: :niche
+    get "niche/channels/:channel_id", to: "channels#show", as: :niche_channel
     get "settings", to: "settings#show",  as: :settings
   end
 end

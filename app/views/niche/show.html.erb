@@ -25,7 +25,11 @@
       <tbody>
         <% channels.each do |c| %>
           <tr class="hover:bg-[#15181C]">
-            <td><%= c[:title].presence || c[:channel_id] %></td>
+            <td>
+              <%= link_to c[:title].presence || c[:channel_id],
+                    project_niche_channel_path(@project, c[:channel_id]),
+                    class: "no-underline hover:text-accent" %>
+            </td>
             <td class="text-right font-mono text-[12px]"><%= compact_number(c[:subscribers]) %></td>
           </tr>
         <% end %>
