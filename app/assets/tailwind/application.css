@@ -1,1 +1,106 @@
 @import "tailwindcss";
+
+/* ------------------------------------------------------------------ *\
+   PRIMOCUT — design system. Tokens and component classes ported verbatim
+   from the approved navigation prototype v3 (the PoC's tailwind.config.js +
+   app.css), which is the normative reference for layout, colour and copy.
+   Tailwind v4: tokens live in @theme; component classes in @layer.
+\* ------------------------------------------------------------------ */
+
+@theme {
+  /* Surfaces */
+  --color-bg: #0E1013;
+  --color-panel: #14171B;
+  --color-card: #191D22;
+  --color-card2: #1F242A;
+  --color-sunk: #0A0C0E;
+
+  /* Lines */
+  --color-line: #252B32;
+  --color-line-strong: #333B44;
+
+  /* Ink (text) */
+  --color-ink: #E4E7EA;
+  --color-ink-2: #959DA6;
+  --color-ink-3: #626A73;
+
+  /* Accent (teal) */
+  --color-accent: #3FA0B5;
+  --color-accent-hi: #59BCD1;
+  --color-accent-bg: #12262C;
+  --color-accent-line: #1E3D46;
+  --color-accent-on: #06171C;
+
+  /* Heat (outlier bands) */
+  --color-heat-90: #96813A;
+  --color-heat-97: #C4802F;
+  --color-heat-99: #EC9F3E;
+  --color-heat-bg90: #1E1B12;
+  --color-heat-bg97: #241A10;
+  --color-heat-bg99: #2A1E0E;
+  --color-heat-ln90: #2E2916;
+  --color-heat-ln97: #3A2814;
+  --color-heat-ln99: #452F13;
+
+  /* Status */
+  --color-ok: #57A06E;
+  --color-ok-bg: #132118;
+  --color-ok-line: #1D3325;
+  --color-err: #D0524E;
+  --color-err-bg: #251314;
+  --color-err-line: #3A2022;
+  --color-viol: #8C93D6;
+  --color-viol-bg: #1A1D2B;
+  --color-viol-line: #282D42;
+
+  /* Type */
+  --font-sans: "Manrope", system-ui, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, monospace;
+
+  /* Radius */
+  --radius-card: 10px;
+}
+
+@layer base {
+  body { @apply bg-bg text-ink font-sans text-[13.5px] leading-relaxed antialiased; }
+  h1 { @apply text-[26px] font-semibold tracking-[-0.02em] leading-tight; }
+  h2 { @apply text-[18px] font-semibold tracking-[-0.01em]; }
+  input[type='text'] { @apply font-mono text-[12.5px] bg-sunk border border-line-strong rounded-md px-3 py-2 text-ink w-full placeholder:text-ink-3 focus:outline-none focus:border-accent; }
+  :focus-visible { @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-bg; }
+}
+
+@layer components {
+  .eyebrow { @apply font-mono text-[10px] tracking-[0.14em] uppercase text-ink-3; }
+  .lbl     { @apply font-mono text-[10px] tracking-[0.14em] uppercase text-ink-3; }
+  .m       { @apply font-mono text-[11.5px] text-ink-2 tabular-nums; }
+  .btn     { @apply font-sans text-[12.5px] text-ink-2 bg-transparent border border-line-strong rounded-md px-3 py-1.5 cursor-pointer hover:bg-card2 hover:text-ink hover:border-[#3F4954] active:translate-y-px; }
+  .btn-pri { @apply bg-accent border-accent text-accent-on font-medium hover:bg-accent-hi hover:border-accent-hi hover:text-accent-on; }
+  .btn-ai  { @apply border-accent-line text-accent hover:bg-accent-bg hover:text-accent-hi hover:border-accent-line; }
+  .btn-xs  { @apply px-2 py-0.5 text-[11px]; }
+  .card    { @apply bg-card border border-line rounded-card px-4 py-3.5; }
+  .chip    { @apply font-mono text-[11px] px-2.5 py-1 rounded-md border border-line text-ink-3 cursor-pointer hover:border-line-strong hover:text-ink-2; }
+  .chip.on { @apply bg-card2 border-line-strong text-ink; }
+  .tab     { @apply text-[14.5px] font-medium px-3.5 py-2 text-ink-3 cursor-pointer border-b-2 border-transparent -mb-px hover:text-ink-2; }
+  .tab.on  { @apply text-ink border-b-accent; }
+  .nav     { @apply flex items-center gap-2.5 px-2 py-1.5 rounded-md cursor-pointer text-ink-2 text-[13px] hover:bg-card; }
+  .nav.on  { @apply bg-card2 text-ink shadow-[inset_2px_0_0_var(--color-accent)]; }
+  .tag     { @apply font-mono text-[10px] px-1.5 py-px rounded border whitespace-nowrap tracking-wide; }
+  .ev      { @apply flex gap-3 items-center bg-card border border-line rounded-card px-3 py-2.5 mb-1.5 cursor-pointer hover:bg-card2 hover:border-line-strong; }
+  .ev.seen { @apply bg-transparent border-0 border-t border-line rounded-none px-0.5 py-2 mb-0 gap-2.5; }
+  .kv      { @apply flex justify-between items-center py-1.5 border-t border-line text-[13px] first:border-t-0; }
+  .pat     { @apply flex items-center gap-2.5 py-1.5 border-t border-line text-[12.5px] first:border-t-0; }
+  .topic   { @apply px-3 py-2 border border-transparent rounded-md hover:bg-card; }
+  .topic.on{ @apply bg-card2 border-line-strong; }
+  .st      { @apply w-2 h-2 rounded-full bg-[#2B323A] shrink-0; }
+  .st-l    { @apply w-3.5 h-px bg-line-strong; }
+}
+
+/* Respect a reader's reduced-motion preference across every animation/transition. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
