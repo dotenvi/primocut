@@ -32,3 +32,12 @@ compatibility that does not exist.
   mirroring the information architecture (global Radar/Activity above per-project
   Cut Room/Niche/Settings). Navigation is walkable end to end — `root` routes to
   Radar, with per-project sections rendering placeholder screens for now.
+- Read-only niche & metrics. A `Metrics::` service layer computes outlier scoring
+  live over snapshot deltas — the pure numeric core (median baselines, nearest-rank
+  percentile bands, Wilson-gated conditional patterns, views-per-hour, resurgence,
+  packaging impact, cadence) ported with exact parity tests, plus DB-reading
+  assemblers for the channel, video and niche dashboards (`ChannelScores`,
+  `ChannelDistribution`, `VideoReport`, `ChannelDashboard`, `NicheDashboard`).
+  Screens: Niche (patterns / outliers / channels), the channel dashboard, video
+  detail with the channel-spread strip, and the Radar feed and Activity log — all
+  drilling down through project → channel → video with per-project leakage guards.
