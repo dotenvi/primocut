@@ -5,6 +5,28 @@ module MetricsHelper
   # Weekday labels in the cadence chart's order (Monday = 0, matching Core#cadence).
   WEEKDAYS = %w[Mon Tue Wed Thu Fri Sat Sun].freeze
 
+  def youtube_watch_url(youtube_video_id)
+    "https://www.youtube.com/watch?v=#{youtube_video_id}"
+  end
+
+  # Short date (YYYY-MM-DD) from an ISO string. "" for nil/blank.
+  def short_date(iso)
+    return "" if iso.blank?
+
+    Time.iso8601(iso).utc.strftime("%Y-%m-%d")
+  rescue ArgumentError
+    ""
+  end
+
+  # The histogram bucket index a view count falls into, given the bucket edges, or
+  # nil when it cannot be placed. Used to mark a video on the channel spread strip.
+  def spread_bucket_index(views, edges)
+    return nil if views.nil? || edges.blank? || edges.length < 2
+
+    idx = edges.each_cons(2).find_index { |lo, hi| views >= lo && views < hi }
+    idx || (views >= edges.last ? edges.length - 2 : nil)
+  end
+
   # Compact count: 1234 -> "1.2k", 3_400_000 -> "3.4M". "—" for nil.
   def compact_number(n)
     return "—" if n.nil?
@@ -53,6 +75,24 @@ module MetricsHelper
     return "" if row[:band].nil?
 
     row[:percentile] ? "p#{plain_number(row[:percentile])}" : row[:band]
+  end
+
+  # The full band label with its evidence: "p99 exceptional" (percentile basis) or
+  # the ordinal band alone. "" when no band was reached.
+  def band_full(row)
+    return "" if row[:band].nil?
+
+    row[:percentile] ? "p#{plain_number(row[:percentile])} #{row[:band]}" : row[:band]
+  end
+
+  # Render an attribute value for the packaging-features list.
+  def fmt_attr_value(value)
+    case value
+    when true then "✓"
+    when false then "✗"
+    when Array then value.any? ? value.join(", ") : "—"
+    else value == "" ? "—" : value.to_s
+    end
   end
 
   # Lift emphasis: a real positive lift glows, everything else stays muted.

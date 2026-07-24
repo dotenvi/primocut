@@ -1,0 +1,85 @@
+<% v = @report[:video] %>
+<% o = @report[:outlier] %>
+<% latest_views = @report[:snapshots].last&.dig(:views) %>
+<% content_for :title, "#{v[:title].presence || v[:youtube_video_id]} — #{@project.name}" %>
+
+<%= link_to "‹ Niche / channel", project_niche_channel_path(@project, @channel.youtube_channel_id),
+      class: "eyebrow cursor-pointer hover:text-ink-2 mb-2 block no-underline" %>
+
+<h1 class="mb-5 max-w-[820px]"><%= v[:title].presence || v[:youtube_video_id] %></h1>
+
+<div class="grid grid-cols-2 gap-4 mb-5 max-[960px]:grid-cols-1">
+  <div class="card">
+    <div class="flex items-start justify-between gap-4">
+      <div class="flex-1">
+        <div class="lbl mb-2">Standing</div>
+        <% if o[:status] == "insufficient_sample" %>
+          <p class="m">Insufficient same-format peers to score against.</p>
+        <% else %>
+          <div class="kv">
+            <span>Band</span>
+            <% if o[:band] %>
+              <span class="tag bg-heat-bg99 text-heat-99 border-heat-ln99"><%= band_full(o) %></span>
+            <% else %><span class="m">—</span><% end %>
+          </div>
+          <div class="kv"><span>Multiple of median</span><span class="font-mono text-[12px] tabular-nums"><%= multiplier(o[:median_multiple]) %></span></div>
+          <div class="kv"><span>Channel median · <%= o[:format] %></span><span class="font-mono text-[12px] tabular-nums"><%= compact_number(o[:baseline]) %> · n=<%= o[:sample_size] %></span></div>
+          <div class="kv"><span>Views</span><span class="font-mono text-[12px] tabular-nums"><%= compact_number(latest_views) %></span></div>
+        <% end %>
+      </div>
+
+      <% buckets = @distribution[:buckets] %>
+      <% if buckets.any? %>
+        <% max_bucket = [ 1, *buckets ].max %>
+        <% mark = spread_bucket_index(latest_views, @distribution[:bucket_edges]) %>
+        <div class="pt-6">
+          <div class="lbl mb-1 text-[9px]">LAST <%= @distribution[:count] %> · <%= v[:is_short] ? "SHORT" : "LONG" %></div>
+          <div class="flex items-end gap-px h-[52px]" title="Channel spread; this video marked">
+            <% buckets.each_with_index do |c, i| %>
+              <div class="w-1 rounded-t-[1px] <%= i == mark ? 'bg-heat-99' : 'bg-[#3f4145]' %>"
+                   style="height:<%= c.zero? ? 0 : [ (c.to_f / max_bucket * 100).round, 6 ].max %>%"></div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="lbl mb-2">Velocity</div>
+    <div class="kv"><span>Current VPH</span><span class="font-mono text-[12px] tabular-nums"><%= vph_label(@report[:vph][:current]) %></span></div>
+    <div class="kv"><span>Like rate</span><span class="font-mono text-[12px] tabular-nums"><%= pct(@report[:engagement][:like_rate]) %></span></div>
+    <div class="kv"><span>Comment rate</span><span class="font-mono text-[12px] tabular-nums"><%= pct(@report[:engagement][:comment_rate]) %></span></div>
+    <div class="kv"><span>Published</span><span class="font-mono text-[12px] tabular-nums"><%= short_date(v[:published_at]).presence || "—" %></span></div>
+    <% if @report[:resurgence][:is_resurgent] %>
+      <p class="m text-accent mt-2">Resurging: <%= multiplier(@report[:resurgence][:ratio]) %> its recent average.</p>
+    <% end %>
+  </div>
+</div>
+
+<% syntactic = @report[:attributes]["syntactic"] %>
+<% if syntactic&.dig(:values).present? %>
+  <div class="lbl mb-2">Packaging features</div>
+  <div class="card mb-5 max-w-[640px]">
+    <% syntactic[:values].each do |key, value| %>
+      <div class="pat"><span class="flex-1 font-mono text-[12px]"><%= key %></span><span class="font-mono text-[11px] text-ink-2"><%= fmt_attr_value(value) %></span></div>
+    <% end %>
+  </div>
+<% end %>
+
+<div class="flex gap-1.5 flex-wrap">
+  <%= link_to "Open on YouTube ↗", youtube_watch_url(v[:youtube_video_id]),
+        class: "btn no-underline", target: "_blank", rel: "noreferrer" %>
+</div>
+
+<% if @report[:packaging_changes].any? %>
+  <div class="lbl mt-7 mb-2">Packaging changes</div>
+  <div class="card max-w-[640px]">
+    <% @report[:packaging_changes].each do |c| %>
+      <div class="kv">
+        <span><%= c[:field] %> changed <%= short_date(c[:detected_at]) %></span>
+        <span class="m"><%= vph_label(c[:vph_before]) %> → <%= vph_label(c[:vph_after]) %></span>
+      </div>
+    <% end %>
+  </div>
+<% end %>

@@ -19,6 +19,7 @@ Rails.application.routes.draw do
     get "sources",  to: "sources#index",  as: :sources
     get "niche",    to: "niche#show",     as: :niche
     get "niche/channels/:channel_id", to: "channels#show", as: :niche_channel
+    get "niche/channels/:channel_id/videos/:video_id", to: "videos#show", as: :niche_channel_video
     get "settings", to: "settings#show",  as: :settings
   end
 end
