@@ -17,4 +17,13 @@ class Clip < ApplicationRecord
          error: "error"
        },
        prefix: :state, default: "queued"
+
+  # The pay-once cache key over the render parameters: range + padding + encode
+  # profile + the boundary-refinement tolerance (a new tolerance can move the exact
+  # cut points, so it must re-render; 0 when refinement is off). Whether NVENC or
+  # alignment were actually available at runtime is environmental and stays out.
+  def self.params_hash(start_s, end_s, padding_s, profile, tolerance_s = 0.0)
+    raw = format("%.3f|%.3f|%.3f|%s|%.3f", start_s, end_s, padding_s, profile, tolerance_s)
+    Digest::SHA1.hexdigest(raw)
+  end
 end
