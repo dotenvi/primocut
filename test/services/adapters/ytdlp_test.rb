@@ -124,4 +124,60 @@ class Adapters::YtdlpTest < ActiveSupport::TestCase
       assert_raises(Ytdlp::Error) { adapter.download_audio("https://y/1", dir, video_id: "vid00000001") }
     end
   end
+
+  # ------------------------- section download -------------------------
+
+  test "section_bounds widens by the margin and clamps to the duration" do
+    assert_equal [ 85.0, 215.0 ], Ytdlp.section_bounds(100.0, 200.0, 15.0, 600.0)
+    assert_equal [ 0.0, 35.0 ], Ytdlp.section_bounds(5.0, 20.0, 15.0, 600.0)   # clamps start to 0
+    assert_equal [ 85.0, 205.0 ], Ytdlp.section_bounds(100.0, 200.0, 15.0, 205.0) # clamps to duration
+    assert_equal [ 85.0, 215.0 ], Ytdlp.section_bounds(100.0, 200.0, 15.0, 0.0)  # unknown duration
+  end
+
+  test "download_section builds the exact-cut command and returns the file" do
+    Dir.mktmpdir do |dir|
+      cmd_seen = nil
+      shell = FakeShell.new do |_kind, cmd|
+        cmd_seen = cmd
+        File.write(File.join(dir, "section.mkv"), "sec")
+      end
+
+      path = Ytdlp.new(shell: shell)
+        .download_section("https://y/1", dir, start_s: 100.0, end_s: 200.0, margin_s: 15.0, duration: 600.0)
+
+      assert_equal File.join(dir, "section.mkv"), path.to_s
+      assert_includes cmd_seen, "--force-keyframes-at-cuts"
+      assert_includes cmd_seen, "*85.000-215.000"
+      assert_includes cmd_seen, "bv*+ba/b"
+    end
+  end
+
+  test "download_section falls back across player clients" do
+    Dir.mktmpdir do |dir|
+      seen = []
+      shell = FakeShell.new do |_kind, cmd|
+        client = cmd.each_cons(2).find { |a, _| a == "--extractor-args" }&.last
+        seen << client
+        raise Adapters::Shell::CommandError, "extractor broke" if seen.size == 1
+
+        File.write(File.join(dir, "section.mkv"), "sec")
+      end
+
+      path = Ytdlp.new(shell: shell, player_clients: %w[web android])
+        .download_section("https://y/1", dir, start_s: 10.0, end_s: 20.0, margin_s: 5.0, duration: 0.0)
+
+      assert_equal File.join(dir, "section.mkv"), path.to_s
+      assert_equal [ "youtube:player_client=web", "youtube:player_client=android" ], seen
+    end
+  end
+
+  test "download_section raises when every player client fails" do
+    Dir.mktmpdir do |dir|
+      shell = FakeShell.new { raise Adapters::Shell::CommandError, "boom" }
+      adapter = Ytdlp.new(shell: shell, player_clients: %w[web android])
+      assert_raises(Ytdlp::Error) do
+        adapter.download_section("https://y/1", dir, start_s: 10.0, end_s: 20.0, margin_s: 5.0, duration: 0.0)
+      end
+    end
+  end
 end

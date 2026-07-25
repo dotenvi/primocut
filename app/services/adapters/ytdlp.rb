@@ -70,6 +70,15 @@ module Adapters
       raise Error, "Could not extract the video ID from: #{url}"
     end
 
+    # The download window [dl_start, dl_end] = the item range widened by `margin_s`,
+    # clamped to [0, duration] (an unknown duration <= 0 skips the upper clamp).
+    def self.section_bounds(start_s, end_s, margin_s, duration)
+      dl_start = [ 0.0, start_s - margin_s ].max
+      dl_end = end_s + margin_s
+      dl_end = [ duration, dl_end ].min if duration && duration.positive?
+      [ dl_start, dl_end ]
+    end
+
     # Validate the link format and return the canonical video URL. Rejects
     # non-YouTube links and malformed URLs (e.g. pasted shell escape backslashes).
     def self.validate_youtube_url(url)
@@ -147,7 +156,64 @@ module Adapters
       normalized
     end
 
+    # Download ONLY the section around a cut item and return the produced file path.
+    #
+    # The section is an EPHEMERAL intermediate: the caller writes it to a throwaway
+    # temp dir and discards it when the clip is done. `--force-keyframes-at-cuts`
+    # makes the section span EXACTLY [dl_start, dl_end] (its local time 0 = the
+    # source time `dl_start`, A/V synced) — without it yt-dlp's keyframe copy + merge
+    # mangles YouTube's AV1+Opus timestamps and the downstream trim seeks wrong.
+    #
+    # Resilience mirrors the audio download: transient retry + a player_client
+    # fallback (the YouTube extractor breaks frequently), and yt-dlp's own stderr
+    # is surfaced in the raised error so a failure is actionable.
+    def download_section(url, out_dir, start_s:, end_s:, margin_s:, duration:)
+      out_dir = Pathname(out_dir)
+      out_dir.mkpath
+      dl_start, dl_end = self.class.section_bounds(start_s, end_s, margin_s, duration)
+      out_template = out_dir.join("section.%(ext)s").to_s
+      download_section_source(url, out_template, dl_start, dl_end)
+      find_section(out_dir)
+    end
+
     private
+
+    def download_section_source(url, out_template, dl_start, dl_end)
+      attempts = @player_clients.empty? ? [ [] ] : @player_clients.map { |c| [ "--extractor-args", "youtube:player_client=#{c}" ] }
+      last = nil
+      succeeded = attempts.any? do |extra|
+        Resilience.with_retry(policy: @retry_policy, label: "ytdlp.section") do
+          @shell.run(build_section_cmd(url, out_template, dl_start, dl_end, extra))
+        end
+        true
+      rescue StandardError => e
+        last = e
+        Rails.logger.warn("yt-dlp section download failed (#{extra.empty? ? "default" : extra.last}): #{e.message}")
+        false
+      end
+      return if succeeded
+
+      raise Error,
+        "Failed to download the clip section after #{attempts.size} yt-dlp configuration(s). " \
+        "Try updating yt-dlp or adjusting YTDLP_PLAYER_CLIENTS. Last error: #{last}"
+    end
+
+    # `bv*+ba/b` keeps the original resolution (best video + best audio, merged).
+    def build_section_cmd(url, out_template, dl_start, dl_end, extra)
+      [
+        *@base_cmd, "-f", "bv*+ba/b",
+        "--download-sections", format("*%.3f-%.3f", dl_start, dl_end),
+        "--force-keyframes-at-cuts", "--merge-output-format", "mkv", "--no-warnings",
+        *extra, "-o", out_template, url
+      ]
+    end
+
+    def find_section(out_dir)
+      match = Pathname.glob(out_dir.join("section.*")).find(&:file?)
+      raise Error, "yt-dlp did not produce the section file." unless match
+
+      match
+    end
 
     # Try each player_client in turn; the first that downloads wins. yt-dlp only
     # grabs the best compressed audio here (no WAV conversion) — one ffmpeg pass
