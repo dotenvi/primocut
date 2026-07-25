@@ -18,6 +18,14 @@ compatibility that does not exist.
 
 ### Added
 
+- Automatic comment collection (`Competitors::CommentCollection`, wired into the
+  snapshot cycle): a consumer of the `outlier_crossed` events, it collects the top
+  comments of every definitive outlier still owed them, deterministically and with
+  no LLM call. Collect-once by design (the `comments_state` terminal guard stops a
+  re-cross from re-collecting); a disabled thread degrades to a terminal `disabled`
+  state, while a fetch error stays non-terminal and is retried on a later cycle.
+  Each video is isolated so one failure never breaks the cycle, and the comment
+  quota folds into the cycle's reported total.
 - Outlier-crossing events (`Competitors::OutlierEmission`, wired into the snapshot
   cycle): records an `outlier_crossed` niche event the moment a video steps up to a
   strictly higher band than the one last emitted (persisted per video), so the
