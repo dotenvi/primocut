@@ -67,9 +67,12 @@ module Diagnostics
     # unavailable, so its absence does not break the environment.
     def check_nvenc
       name = "NVENC (h264_nvenc)"
+      # A real (if tiny) encode: 256x144 for 10 frames. NVENC rejects the sub-minimum
+      # frame the PoC probed with (128x72 @ 0.1s → "-22 Invalid argument") even where
+      # it works, so that input produced a false negative on ffmpeg 7.x.
       res = @run.call(
         [ "ffmpeg", "-hide_banner", "-loglevel", "error",
-          "-f", "lavfi", "-i", "color=c=black:s=128x72:d=0.1",
+          "-f", "lavfi", "-i", "color=c=black:s=256x144:d=1:r=10",
           "-c:v", "h264_nvenc", "-f", "null", "-" ], timeout: 30
       )
       return warn(name, "FFmpeg not found", fix: "sudo apt install ffmpeg") if res.missing?
