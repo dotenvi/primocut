@@ -18,6 +18,15 @@ compatibility that does not exist.
 
 ### Added
 
+- Opt-in AI comment synthesis (the `comments` kind on `Enrichment::VideoEnricher`, plus
+  `Enrichment::Comments` and `Enrichment::AudienceRequests`): reads a video's collected
+  comments and records the recurring themes, the audience's explicit requests, and the
+  overall sentiment into `video_enrichments`. The model only ever returns a comment
+  index — quotes are resolved back to the stored comment and clamped, so it can never
+  invent audience words. Keyed by the comment-set hash (paid once per set); a
+  `regenerate` re-collects the thread first so a refreshed set re-synthesises. Requests
+  aggregate across a project's videos, merging spelling variants and ranking by how many
+  videos asked — plain counting, not a second LLM pass.
 - Opt-in AI thumbnail enrichment (the `thumbnail` kind on `Enrichment::VideoEnricher`):
   a vision extraction of a thumbnail's visual packaging (faces, expression, overlaid
   text, dominant colours, arrows/highlights, confrontation framing) stored as raw
