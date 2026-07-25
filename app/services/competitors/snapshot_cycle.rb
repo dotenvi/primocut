@@ -57,19 +57,25 @@ module Competitors
 
       # Emission: record `outlier_crossed` for videos that stepped up a band, with
       # the anti-flapping guard. Reads the snapshots just persisted; isolated so a
-      # scoring error never breaks the cycle. Comment collection (a later slice) will
-      # consume the events it writes.
+      # scoring error never breaks the cycle. Comment collection below consumes the
+      # events it writes.
       emit_outlier_events(targets, now:)
+
+      # Comment collection: a sibling step that consumes the `outlier_crossed` events
+      # just emitted (a video that crossed this cycle is collected in the same pass).
+      # It spends quota but no LLM call, is internally isolated, and runs before the
+      # quota is read so its units fold into the cycle's reported total.
+      comments = collect_outlier_comments(targets, now:)
 
       result = {
         scope:, channels: channels_done, videos: videos_done,
-        packaging_changes:, comments: 0, quota_units: @client.units_used
+        packaging_changes:, comments:, quota_units: @client.units_used
       }
       record_cycle_done(result, now:)
 
       Rails.logger.info(
         "snapshot(#{scope}) done: #{channels_done} channel(s), #{videos_done} video(s), " \
-        "#{packaging_changes} packaging change(s), #{@client.units_used} quota unit(s)"
+        "#{packaging_changes} packaging change(s), #{comments} comment set(s), #{@client.units_used} quota unit(s)"
       )
       result
     end
@@ -177,6 +183,13 @@ module Competitors
       OutlierEmission.new(config: @metrics_config, now:).call(channels)
     rescue StandardError => e # never let emission break the collection cycle
       Rails.logger.error("outlier emission failed: #{e.message}")
+    end
+
+    def collect_outlier_comments(channels, now:)
+      CommentCollection.new(client: @client, config: @config).call(channels, now:)
+    rescue StandardError => e # never let comment collection break the cycle
+      Rails.logger.error("comment collection failed: #{e.message}")
+      0
     end
 
     # A born-resolved ops record of the cycle: it carries the quota accounting the

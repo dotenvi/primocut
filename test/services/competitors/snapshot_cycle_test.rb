@@ -12,15 +12,23 @@ class Competitors::SnapshotCycleTest < ActiveSupport::TestCase
 
   # A fake YoutubeApi with in-memory quota accounting.
   class FakeYouTube
-    attr_accessor :channel_stats, :uploads, :videos, :fail_channels
-    attr_reader :units_used
+    attr_accessor :channel_stats, :uploads, :videos, :fail_channels, :comments
+    attr_reader :units_used, :comment_calls
 
     def initialize
       @channel_stats = {}   # channel_id -> ChannelStats
       @uploads = {}         # playlist_id -> top video ids
       @videos = {}          # video_id -> VideoInfo
+      @comments = {}        # video_id -> [CommentInfo]
       @fail_channels = Set.new
+      @comment_calls = []
       @units_used = 0
+    end
+
+    def list_top_comments(video_id, pages: 2)
+      @comment_calls << [ video_id, pages ]
+      @units_used += pages
+      Array(@comments[video_id])
     end
 
     def get_channels_stats(ids)
@@ -255,6 +263,28 @@ class Competitors::SnapshotCycleTest < ActiveSupport::TestCase
     assert_not_nil ev
     assert_equal "relevant", ev.payload["band"]
     assert_equal "v1", CompetitorVideo.find(ev.competitor_video_id).youtube_video_id
+  end
+
+  test "a real cycle collects the comments of an outlier it just detected" do
+    ch = seed_channel
+    12.times do |i|
+      peer = seed_video(ch, "p#{i}", title: "Peer #{i}", published_at: NOW - (40 + i).days, duration_s: 600, is_short: false)
+      peer.video_snapshots.create!(captured_at: NOW - 1.day, views: 1000, likes: 1, comments: 1)
+    end
+    yt = FakeYouTube.new
+    yt.uploads = { "UUUCc" => [ "v1" ] }
+    yt.videos = { "v1" => vinfo("v1", title: "Target", views: 3000, published: NOW - 30.days) }
+    yt.comments = { "v1" => [ Api::CommentInfo.new(comment_id: "c0", text: "top", like_count: 9, author: "u0") ] }
+
+    res = Competitors::SnapshotCycle.new(
+      client: yt, thumbnail_fetcher: FakeThumbs.new, metrics_config: Metrics::Config.new(band_basis: "fixed_multiple")
+    ).call(scope: "all", now: NOW)
+
+    assert_equal 1, res[:comments]
+    assert_equal [ "v1", 2 ], yt.comment_calls.sole # the crossing drove exactly one fetch
+    v = CompetitorVideo.find_by(youtube_video_id: "v1")
+    assert_equal "done", v.comments_state
+    assert_equal 1, v.video_comments.count
   end
 
   test "rejects an unknown scope" do
