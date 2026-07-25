@@ -18,6 +18,13 @@ compatibility that does not exist.
 
 ### Added
 
+- The clip-render building blocks (`Adapters::Ffmpeg`, plus `download_section` on
+  `Adapters::Ytdlp`): download only the section around a cut (exact-cut keyframes so
+  audio and video stay in sync), fine-cut it into a frame-exact MP4 re-encode (NVENC
+  with an automatic libx264 fallback, or an opt-in keyframe-imprecise stream copy),
+  and extract deterministic candidate frames from a clip (scene changes first, then
+  evenly-spaced samples, pay-once by presence). `Cuts::Naming` turns a clip's title
+  into its `NNN-slug.mp4` filename. These are the pieces the render step runs on next.
 - The data model the Cut Room is built on: a source video's transcript is broken into
   `Topic` segments, each triaged per source video (`TopicTriage` — keep as "maybe" or
   "discard"); the topics and manual ranges the user keeps are composed, in order, into
