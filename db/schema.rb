@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_24_040012) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_25_040001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -120,6 +120,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_24_040012) do
     t.index ["name"], name: "index_projects_on_name", unique: true
   end
 
+  create_table "source_videos", force: :cascade do |t|
+    t.string "channel", default: "", null: false
+    t.datetime "created_at", null: false
+    t.integer "duration_s", default: 0, null: false
+    t.bigint "project_id", null: false
+    t.string "status", default: "queued", null: false
+    t.string "title", default: "", null: false
+    t.datetime "updated_at", null: false
+    t.string "url", null: false
+    t.string "youtube_id", null: false
+    t.index ["project_id"], name: "index_source_videos_on_project_id"
+    t.index ["youtube_id"], name: "index_source_videos_on_youtube_id", unique: true
+  end
+
   create_table "video_attributes", force: :cascade do |t|
     t.jsonb "attrs", default: {}, null: false
     t.bigint "competitor_video_id", null: false
@@ -175,6 +189,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_24_040012) do
   add_foreign_key "packaging_changes", "competitor_videos", on_delete: :cascade
   add_foreign_key "project_channels", "competitor_channels", on_delete: :cascade
   add_foreign_key "project_channels", "projects", on_delete: :cascade
+  add_foreign_key "source_videos", "projects", on_delete: :cascade
   add_foreign_key "video_attributes", "competitor_videos", on_delete: :cascade
   add_foreign_key "video_comments", "competitor_videos", on_delete: :cascade
   add_foreign_key "video_enrichments", "competitor_videos", on_delete: :cascade
