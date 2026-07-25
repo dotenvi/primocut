@@ -18,6 +18,13 @@ compatibility that does not exist.
 
 ### Added
 
+- Render a cut's clips in the background (`Cuts::Render` + `CutRenderJob`): each item
+  downloads only its section and re-encodes to a frame-exact MP4, with per-item
+  isolation (one clip that fails is flagged with its error and the rest still render)
+  and a pay-once cache (an unchanged item is skipped, and a pure reorder just renames
+  the file — no re-encode). Clips land under `clips/<video>/<cut>/NNN-slug.mp4` and are
+  deliverables, never swept. An optional boundary-refinement seam nudges a clip's cut
+  points to the nearest word edge when an align backend is configured.
 - The clip-render building blocks (`Adapters::Ffmpeg`, plus `download_section` on
   `Adapters::Ytdlp`): download only the section around a cut (exact-cut keyframes so
   audio and video stay in sync), fine-cut it into a frame-exact MP4 re-encode (NVENC
