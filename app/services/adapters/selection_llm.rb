@@ -25,13 +25,14 @@ module Adapters
     # Return the structured attributes the model recorded against `schema` (a JSON
     # Schema Hash). `image` attaches raw image bytes for a vision extraction (the
     # thumbnail kind); `model` overrides the configured model for this call only.
-    def select(system:, user:, schema:, image: nil, model: nil)
+    def select(system:, user:, schema:, image: nil, images: nil, model: nil)
       chat = build_chat(model || @model)
         .with_instructions(system)
         .with_temperature(0)
         .with_schema(schema)
 
-      content = ask(chat, user, image).content
+      attachments = images || (image ? [ image ] : [])
+      content = ask(chat, user, attachments).content
 
       unless content.is_a?(Hash)
         raise ExtractionError, "the model did not return a structured object (got #{content.class})"
@@ -41,17 +42,23 @@ module Adapters
 
     private
 
-    # RubyLLM attaches an image from a path/URL/IO — raw bytes travel through a
-    # short-lived temp file whose extension carries the format (sniffed from the
-    # magic bytes) so the provider tags the base64 correctly.
-    def ask(chat, user, image)
-      return chat.ask(user) if image.nil?
+    # RubyLLM attaches images from paths/URLs/IO — raw bytes travel through
+    # short-lived temp files whose extension carries the format (sniffed from the
+    # magic bytes) so the provider tags the base64 correctly. `attachments` is a
+    # list of raw image byte strings (empty for a text-only extraction; one for the
+    # thumbnail kind; several for the frame-ranking vision pass).
+    def ask(chat, user, attachments)
+      return chat.ask(user) if attachments.empty?
 
-      Tempfile.create([ "thumbnail", image_extension(image) ], binmode: true) do |file|
-        file.write(image)
+      files = attachments.each_with_index.map do |bytes, i|
+        file = Tempfile.new([ "img-#{i}", image_extension(bytes) ], binmode: true)
+        file.write(bytes)
         file.flush
-        chat.ask(user, with: file.path)
+        file
       end
+      chat.ask(user, with: files.map(&:path))
+    ensure
+      Array(files).each { |f| f.close!  }
     end
 
     MAGIC = {

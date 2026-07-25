@@ -21,7 +21,8 @@ class Adapters::SelectionLlmTest < ActiveSupport::TestCase
 
     def ask(user, with: nil)
       @calls[:user] = user
-      @calls[:with_bytes] = with ? File.binread(with) : nil # read the temp file before it is unlinked
+      # `with` is a list of temp-file paths; read them before they are unlinked.
+      @calls[:with_bytes] = with ? Array(with).map { |p| File.binread(p) } : nil
       FakeMessage.new(@content)
     end
   end
@@ -55,7 +56,18 @@ class Adapters::SelectionLlmTest < ActiveSupport::TestCase
     out = llm.select(system: "s", user: "Analyse this thumbnail.", schema: {}, image: bytes)
 
     assert_equal({ "face_count" => 1 }, out)
-    assert_equal bytes, fake.calls[:with_bytes] # bytes reached the chat via a temp file
+    assert_equal [ bytes ], fake.calls[:with_bytes] # bytes reached the chat via a temp file
+  end
+
+  test "attaches multiple images for a vision ranking pass" do
+    fake = FakeChat.new({ "rankings" => [] })
+    llm = Adapters::SelectionLlm.new(chat_factory: ->(_model) { fake })
+    a = "\xFF\xD8\xFF first".b
+    b = "\x89PNG\r\n\x1A\n second".b
+
+    llm.select(system: "s", user: "Rank these.", schema: {}, images: [ a, b ])
+
+    assert_equal [ a, b ], fake.calls[:with_bytes]
   end
 
   test "the per-call model override reaches the chat factory" do

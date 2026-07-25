@@ -7,6 +7,6 @@ class AudienceMatch < ApplicationRecord
   belongs_to :source_video
 
   enum :state,
-       { done: "done", error: "error" },
+       { running: "running", done: "done", error: "error" },
        prefix: :state, default: "done"
 end
