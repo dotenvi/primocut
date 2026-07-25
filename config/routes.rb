@@ -16,7 +16,9 @@ Rails.application.routes.draw do
   # Per-project navigation. Real content lands in Phase 2; these render shell
   # placeholders for now so the navigation is walkable end to end.
   scope "projects/:project_id", as: :project do
-    get "sources",  to: "sources#index",  as: :sources
+    get  "sources",     to: "sources#index",  as: :sources
+    post "sources",     to: "sources#create"
+    get  "sources/:id", to: "sources#show",   as: :source # single-row polling frame
     get "niche",    to: "niche#show",     as: :niche
     get "niche/channels/:channel_id", to: "channels#show", as: :niche_channel
     get "niche/channels/:channel_id/videos/:video_id", to: "videos#show", as: :niche_channel_video

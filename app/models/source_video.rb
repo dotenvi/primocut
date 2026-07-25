@@ -30,4 +30,9 @@ class SourceVideo < ApplicationRecord
   def active?
     ACTIVE_STATUSES.include?(status)
   end
+
+  # The run whose progress the UI shows — the most recent one.
+  def latest_job
+    pipeline_jobs.order(:created_at).last
+  end
 end

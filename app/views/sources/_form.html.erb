@@ -1,0 +1,7 @@
+<%= form_with url: project_sources_path(@project), scope: :source_video, method: :post,
+      class: "flex gap-2 max-w-[640px]" do |f| %>
+  <div class="flex-1">
+    <%= f.text_field :url, placeholder: "https://www.youtube.com/watch?v=…", autocomplete: "off" %>
+  </div>
+  <%= f.submit "Process", class: "btn btn-pri whitespace-nowrap" %>
+<% end %>

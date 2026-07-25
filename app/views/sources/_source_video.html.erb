@@ -1,0 +1,30 @@
+<%#
+  One source-video row. While the video is in flight the frame carries a `src`
+  and the poll controller, so it re-fetches itself (this same partial via
+  SourcesController#show) every couple of seconds and shows live progress. Once
+  it reaches a terminal status the returned frame drops both, and polling stops.
+%>
+<%= turbo_frame_tag dom_id(source_video),
+      src: (source_video.active? ? project_source_path(@project, source_video) : nil),
+      data: (source_video.active? ? { controller: "poll" } : {}) do %>
+  <% job = source_video.latest_job %>
+  <div class="card flex items-center gap-4">
+    <div class="flex-1 min-w-0">
+      <div class="text-ink truncate"><%= source_video.title.presence || source_video.youtube_id %></div>
+      <div class="m text-ink-3 truncate"><%= source_video.channel.presence || "—" %></div>
+    </div>
+
+    <% if source_video.active? && job %>
+      <div class="w-[190px]">
+        <div class="h-1.5 bg-sunk rounded overflow-hidden">
+          <div class="h-full bg-accent transition-[width] duration-500" style="width: <%= job.progress %>%"></div>
+        </div>
+        <div class="m text-ink-3 mt-1 truncate"><%= job.stage.presence || "Queued" %> · <%= job.progress %>%</div>
+      </div>
+    <% elsif source_video.error? && job && job.error.present? %>
+      <div class="w-[190px] m text-err truncate" title="<%= job.error %>"><%= job.error %></div>
+    <% end %>
+
+    <%= source_status_tag(source_video) %>
+  </div>
+<% end %>

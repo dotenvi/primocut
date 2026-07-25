@@ -1,5 +1,22 @@
 <% content_for :title, "Cut Room — #{@project.name}" %>
-<%= render "shared/placeholder",
-      eyebrow: @project.name,
-      title: "Cut Room",
-      note: "Source-videos list, pipeline status and assisted cutting for this project. The pipeline lands in Phase 4 and the Cut Room in Phase 5." %>
+
+<div class="flex items-end justify-between gap-3 mb-5">
+  <div><div class="eyebrow"><%= @project.name %></div><h1>Cut Room</h1></div>
+</div>
+
+<% if flash[:notice] %>
+  <div class="card mb-4 bg-ok-bg border-ok-line text-ok text-[13px]"><%= flash[:notice] %></div>
+<% end %>
+<% if flash[:alert] %>
+  <div class="card mb-4 bg-err-bg border-err-line text-err text-[13px]"><%= flash[:alert] %></div>
+<% end %>
+
+<%= render "form" %>
+
+<% if @source_videos.empty? %>
+  <p class="m mt-6">No source video yet. Paste a YouTube link above to start processing.</p>
+<% else %>
+  <div class="flex flex-col gap-2 mt-6">
+    <%= render partial: "source_video", collection: @source_videos, as: :source_video %>
+  </div>
+<% end %>
