@@ -10,9 +10,20 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_25_040004) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_25_040012) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "audience_matches", force: :cascade do |t|
+    t.string "content_hash", default: "", null: false
+    t.datetime "created_at", null: false
+    t.text "error", default: "", null: false
+    t.jsonb "payload", default: {}, null: false
+    t.bigint "source_video_id", null: false
+    t.string "state", default: "done", null: false
+    t.datetime "updated_at", null: false
+    t.index ["source_video_id"], name: "index_audience_matches_on_source_video_id", unique: true
+  end
 
   create_table "channel_snapshots", force: :cascade do |t|
     t.datetime "captured_at", null: false
@@ -32,6 +43,32 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_25_040004) do
     t.bigint "source_video_id", null: false
     t.datetime "updated_at", null: false
     t.index ["source_video_id"], name: "index_chat_signals_on_source_video_id", unique: true
+  end
+
+  create_table "clips", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "cut_id", null: false
+    t.bigint "cut_item_id", null: false
+    t.float "duration_s", default: 0.0, null: false
+    t.string "encode_profile", default: "", null: false
+    t.string "encoder_used", default: "", null: false
+    t.float "end_s", default: 0.0, null: false
+    t.text "error", default: "", null: false
+    t.string "filename", default: "", null: false
+    t.float "padding_s", default: 0.0, null: false
+    t.string "params_hash", default: "", null: false
+    t.integer "position", default: 0, null: false
+    t.string "rel_path", default: "", null: false
+    t.float "render_end_s", default: 0.0, null: false
+    t.float "render_start_s", default: 0.0, null: false
+    t.bigint "size_bytes", default: 0, null: false
+    t.bigint "source_video_id", null: false
+    t.float "start_s", default: 0.0, null: false
+    t.string "state", default: "queued", null: false
+    t.datetime "updated_at", null: false
+    t.index ["cut_id"], name: "index_clips_on_cut_id"
+    t.index ["cut_item_id"], name: "index_clips_on_cut_item_id", unique: true
+    t.index ["source_video_id"], name: "index_clips_on_source_video_id"
   end
 
   create_table "competitor_channels", force: :cascade do |t|
@@ -69,6 +106,43 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_25_040004) do
     t.index ["youtube_video_id"], name: "index_competitor_videos_on_youtube_video_id", unique: true
   end
 
+  create_table "cut_items", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "cut_id", null: false
+    t.float "end_s", default: 0.0, null: false
+    t.integer "position", default: 0, null: false
+    t.float "start_s", default: 0.0, null: false
+    t.bigint "topic_id"
+    t.datetime "updated_at", null: false
+    t.index ["cut_id", "position"], name: "index_cut_items_on_cut_id_and_position"
+    t.index ["cut_id"], name: "index_cut_items_on_cut_id"
+    t.index ["topic_id"], name: "index_cut_items_on_topic_id"
+  end
+
+  create_table "cut_packagings", force: :cascade do |t|
+    t.string "content_hash", default: "", null: false
+    t.datetime "created_at", null: false
+    t.bigint "cut_id", null: false
+    t.bigint "cut_item_id", null: false
+    t.text "error", default: "", null: false
+    t.string "kind", null: false
+    t.jsonb "payload", default: {}, null: false
+    t.string "state", default: "done", null: false
+    t.datetime "updated_at", null: false
+    t.index ["cut_id"], name: "index_cut_packagings_on_cut_id"
+    t.index ["cut_item_id", "kind"], name: "index_cut_packagings_on_cut_item_and_kind", unique: true
+    t.index ["cut_item_id"], name: "index_cut_packagings_on_cut_item_id"
+  end
+
+  create_table "cuts", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "name", default: "Cut 1", null: false
+    t.bigint "source_video_id", null: false
+    t.string "status", default: "draft", null: false
+    t.datetime "updated_at", null: false
+    t.index ["source_video_id"], name: "index_cuts_on_source_video_id"
+  end
+
   create_table "events", force: :cascade do |t|
     t.string "category", null: false
     t.bigint "competitor_channel_id"
@@ -83,6 +157,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_25_040004) do
     t.string "severity", default: "info", null: false
     t.bigint "source_video_id"
     t.index ["category", "occurred_at"], name: "index_events_on_category_and_occurred_at", order: { occurred_at: :desc }
+  end
+
+  create_table "exports", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "cut_id", null: false
+    t.text "error", default: "", null: false
+    t.integer "item_count", default: 0, null: false
+    t.string "package_rel_path", default: "", null: false
+    t.boolean "skip_master", default: false, null: false
+    t.bigint "source_video_id", null: false
+    t.string "state", default: "queued", null: false
+    t.datetime "updated_at", null: false
+    t.boolean "upscaled", default: false, null: false
+    t.string "zip_rel_path", default: "", null: false
+    t.index ["cut_id"], name: "index_exports_on_cut_id", unique: true
+    t.index ["source_video_id"], name: "index_exports_on_source_video_id"
   end
 
   create_table "own_channels", force: :cascade do |t|
@@ -156,6 +246,30 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_25_040004) do
     t.index ["youtube_id"], name: "index_source_videos_on_youtube_id", unique: true
   end
 
+  create_table "topic_triages", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "source_video_id", null: false
+    t.string "state", null: false
+    t.bigint "topic_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["source_video_id", "topic_id"], name: "index_topic_triages_uniqueness", unique: true
+    t.index ["source_video_id"], name: "index_topic_triages_on_source_video_id"
+    t.index ["topic_id"], name: "index_topic_triages_on_topic_id"
+  end
+
+  create_table "topics", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.float "end_s", default: 0.0, null: false
+    t.integer "ordinal", default: 0, null: false
+    t.float "score", default: 0.0, null: false
+    t.bigint "source_video_id", null: false
+    t.float "start_s", default: 0.0, null: false
+    t.text "summary", default: "", null: false
+    t.string "title", default: "", null: false
+    t.datetime "updated_at", null: false
+    t.index ["source_video_id"], name: "index_topics_on_source_video_id"
+  end
+
   create_table "transcripts", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "language", default: "", null: false
@@ -215,15 +329,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_25_040004) do
     t.index ["competitor_video_id"], name: "index_video_snapshots_on_competitor_video_id"
   end
 
+  add_foreign_key "audience_matches", "source_videos", on_delete: :cascade
   add_foreign_key "channel_snapshots", "competitor_channels", on_delete: :cascade
   add_foreign_key "chat_signals", "source_videos", on_delete: :cascade
+  add_foreign_key "clips", "cut_items", on_delete: :cascade
   add_foreign_key "competitor_videos", "competitor_channels", on_delete: :cascade
+  add_foreign_key "cut_items", "cuts", on_delete: :cascade
+  add_foreign_key "cut_items", "topics", on_delete: :nullify
+  add_foreign_key "cut_packagings", "cut_items", on_delete: :cascade
+  add_foreign_key "cuts", "source_videos", on_delete: :cascade
+  add_foreign_key "exports", "cuts", on_delete: :cascade
   add_foreign_key "own_channels", "projects", on_delete: :cascade
   add_foreign_key "packaging_changes", "competitor_videos", on_delete: :cascade
   add_foreign_key "pipeline_jobs", "source_videos", on_delete: :cascade
   add_foreign_key "project_channels", "competitor_channels", on_delete: :cascade
   add_foreign_key "project_channels", "projects", on_delete: :cascade
   add_foreign_key "source_videos", "projects", on_delete: :cascade
+  add_foreign_key "topic_triages", "source_videos", on_delete: :cascade
+  add_foreign_key "topic_triages", "topics", on_delete: :cascade
+  add_foreign_key "topics", "source_videos", on_delete: :cascade
   add_foreign_key "transcripts", "source_videos", on_delete: :cascade
   add_foreign_key "video_attributes", "competitor_videos", on_delete: :cascade
   add_foreign_key "video_comments", "competitor_videos", on_delete: :cascade

@@ -7,6 +7,13 @@ class SourceVideo < ApplicationRecord
   has_one :transcript, dependent: :destroy
   has_one :chat_signal, dependent: :destroy
 
+  # The cut domain: LLM-selected topics, their per-video triage, the composed cuts
+  # and the cached audience match.
+  has_many :topics, dependent: :destroy
+  has_many :topic_triages, dependent: :destroy
+  has_many :cuts, dependent: :destroy
+  has_one :audience_match, dependent: :destroy
+
   # Statuses in which the video is actively being processed — not directly
   # deletable, and the pipeline treats them as "in flight". Mirrors the PoC
   # `models.py::ACTIVE_STATUSES`.
