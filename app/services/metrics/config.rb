@@ -9,7 +9,9 @@ module Metrics
                 :outlier_provisional_days, :band_basis, :band_cutoffs_percentile,
                 :band_cutoffs_fixed, :vph_current_window_hours, :resurgence_min_age_days,
                 :resurgence_k, :resurgence_baseline_days, :resurgence_min_vph,
-                :packaging_impact_window_days, :pattern_confidence
+                :packaging_impact_window_days, :pattern_confidence, :packaging_format,
+                :packaging_convention_floor, :packaging_carries_value_min_videos,
+                :packaging_carries_value_min_lift, :packaging_examples
 
     def initialize(
       outlier_window_videos: 50,
@@ -25,7 +27,12 @@ module Metrics
       resurgence_baseline_days: 7,
       resurgence_min_vph: 1.0,
       packaging_impact_window_days: 7,
-      pattern_confidence: 1.96
+      pattern_confidence: 1.96,
+      packaging_format: "long",
+      packaging_convention_floor: 0.85,
+      packaging_carries_value_min_videos: 3,
+      packaging_carries_value_min_lift: 1.5,
+      packaging_examples: 6
     )
       @outlier_window_videos = outlier_window_videos
       @outlier_window_days = outlier_window_days
@@ -41,6 +48,11 @@ module Metrics
       @resurgence_min_vph = resurgence_min_vph
       @packaging_impact_window_days = packaging_impact_window_days
       @pattern_confidence = pattern_confidence
+      @packaging_format = packaging_format
+      @packaging_convention_floor = packaging_convention_floor
+      @packaging_carries_value_min_videos = packaging_carries_value_min_videos
+      @packaging_carries_value_min_lift = packaging_carries_value_min_lift
+      @packaging_examples = packaging_examples
     end
 
     # The active band basis and its three ordinal cutoffs (global, read-only).
