@@ -8,6 +8,7 @@ class CutsController < ProjectScopedController
 
   def show
     load_topics
+    load_packaging
   end
 
   # The topics frame alone (no layout), re-fetched by the polling controller while
@@ -98,7 +99,32 @@ class CutsController < ProjectScopedController
     send_file path, type: "application/zip", filename: File.basename(path)
   end
 
+  # The packaging frame alone (no layout), re-fetched while a pass is running.
+  def packaging_status
+    load_packaging
+    render partial: "packaging"
+  end
+
+  # Run one packaging action for the cut (opt-in AI): titles, briefs, frame
+  # extraction, frame ranking, or the audience match. `flash[:working]` engages the
+  # frame's polling on the redirected page even before the job has marked a row.
+  def package
+    job_for(params[:kind]) or return redirect_to cut_room_path, alert: "Unknown packaging action."
+    flash[:working] = true
+    redirect_to cut_room_path, notice: "Working on the packaging…"
+  end
+
   private
+
+  # Enqueue the job for a packaging kind; nil for an unknown kind.
+  def job_for(kind)
+    case kind
+    when "title", "thumb_brief" then CutPackagingJob.perform_later(@cut.id, kind:)
+    when "frames" then ExtractCutFramesJob.perform_later(@cut.id)
+    when "rank" then RankCutFramesJob.perform_later(@cut.id)
+    when "audience" then MatchAudienceJob.perform_later(@source_video.id)
+    end
+  end
 
   def set_source_video
     @source_video = @project.source_videos.find(params[:source_video_id])
@@ -113,6 +139,13 @@ class CutsController < ProjectScopedController
     @topics = @source_video.topics.ordered
     @triage = @source_video.topic_triages.index_by(&:topic_id)
     @cut_topic_ids = @cut.cut_items.where.not(topic_id: nil).pluck(:topic_id).to_set
+  end
+
+  # {cut_item_id => {kind => CutPackaging}} plus the source video's audience match.
+  def load_packaging
+    @packaging = CutPackaging.where(cut_id: @cut.id).group_by(&:cut_item_id)
+                            .transform_values { |rows| rows.index_by(&:kind) }
+    @audience = @source_video.audience_match
   end
 
   def add_manual_range(position)

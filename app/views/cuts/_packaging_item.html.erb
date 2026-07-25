@@ -1,0 +1,33 @@
+<%#
+  One cut item's packaging results: its generated titles, thumbnail brief one-liner
+  and best-ranked frame, each with a running/error badge. `@packaging` maps
+  cut_item_id → {kind → CutPackaging}. Everything is absent until generated.
+%>
+<% pk = @packaging[item.id] || {} %>
+<% titles = pk["title"]; brief = pk["thumb_brief"]; ranking = pk["frame_ranking"] %>
+<div class="rounded-md border border-line px-3 py-2">
+  <div class="flex items-center gap-2">
+    <span class="font-mono text-ink-3 text-[12px]"><%= item.position + 1 %></span>
+    <span class="text-ink truncate flex-1"><%= item.topic&.title || "Manual range" %></span>
+    <% [ titles, brief, ranking ].compact.each do |row| %>
+      <% if row.state_running? %><span class="tag bg-accent-bg text-accent border-accent-line">…</span>
+      <% elsif row.state_error? %><span class="tag bg-err-bg text-err border-err-line" title="<%= row.error %>"><%= row.kind %>!</span><% end %>
+    <% end %>
+  </div>
+
+  <% if titles&.state_done? && titles.payload["titles"].present? %>
+    <ul class="mt-1.5 flex flex-col gap-0.5">
+      <% titles.payload["titles"].each do |t| %>
+        <li class="m text-ink-2">• <%= t["title"] %> <span class="text-ink-3 font-mono">(<%= t["length_chars"] %>)</span></li>
+      <% end %>
+    </ul>
+  <% end %>
+
+  <% if brief&.state_done? %>
+    <div class="m text-ink-3 mt-1">Thumbnail: <%= Cuts::PackagingPrompts.brief_summary(brief.payload) %></div>
+  <% end %>
+
+  <% if ranking&.state_done? && ranking.payload["best_filename"].present? %>
+    <div class="m text-ink-3 mt-1 font-mono">Best frame: <%= ranking.payload["best_filename"] %></div>
+  <% end %>
+</div>

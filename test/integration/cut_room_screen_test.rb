@@ -162,6 +162,45 @@ class CutRoomScreenTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  # ------------------------- section 4: AI packaging -------------------------
+
+  test "each packaging action enqueues its matching job" do
+    cut = @video.cuts.create!
+    cut.cut_items.create!(position: 0, topic: @topic, start_s: 100, end_s: 130)
+
+    assert_enqueued_with(job: CutPackagingJob) { post project_cut_packaging_path(@project, @video), params: { kind: "title" } }
+    assert_enqueued_with(job: ExtractCutFramesJob) { post project_cut_packaging_path(@project, @video), params: { kind: "frames" } }
+    assert_enqueued_with(job: RankCutFramesJob) { post project_cut_packaging_path(@project, @video), params: { kind: "rank" } }
+    assert_enqueued_with(job: MatchAudienceJob) { post project_cut_packaging_path(@project, @video), params: { kind: "audience" } }
+  end
+
+  test "an unknown packaging kind is rejected without enqueuing" do
+    @video.cuts.create!
+    assert_no_enqueued_jobs do
+      post project_cut_packaging_path(@project, @video), params: { kind: "bogus" }
+    end
+    assert_equal "Unknown packaging action.", flash[:alert]
+  end
+
+  test "generated titles appear on the packaging panel" do
+    cut = @video.cuts.create!
+    item = cut.cut_items.create!(position: 0, topic: @topic, start_s: 100, end_s: 130)
+    CutPackaging.create!(cut_item: item, cut_id: cut.id, kind: "title", state: "done",
+                         payload: { "titles" => [ { "title" => "A Punchy Title", "length_chars" => 14 } ] })
+
+    get project_cut_room_path(@project, @video)
+    assert_select "li", text: /A Punchy Title/
+  end
+
+  test "a running packaging pass polls the panel" do
+    cut = @video.cuts.create!
+    item = cut.cut_items.create!(position: 0, topic: @topic, start_s: 100, end_s: 130)
+    CutPackaging.create!(cut_item: item, cut_id: cut.id, kind: "title", state: "running")
+
+    get project_cut_room_path(@project, @video)
+    assert_select "turbo-frame#cut_packaging[src][data-controller=?]", "poll"
+  end
+
   test "a source video from another project is not found here (leakage guard)" do
     other = Project.create!(name: "Other")
     theirs = other.source_videos.create!(youtube_id: "ccccccccccc", url: "https://y/c")

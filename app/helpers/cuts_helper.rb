@@ -61,4 +61,10 @@ module CutsHelper
   def exporting?(export)
     export && %w[queued packaging].include?(export.state)
   end
+
+  # True while any packaging pass for the cut (or its audience match) is running.
+  def packaging_running?(cut)
+    CutPackaging.where(cut_id: cut.id, state: "running").exists? ||
+      cut.source_video.audience_match&.state_running?
+  end
 end

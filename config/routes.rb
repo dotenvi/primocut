@@ -37,6 +37,10 @@ Rails.application.routes.draw do
     get    "sources/:source_video_id/cut/export", to: "cuts#export_status", as: :cut_export
     post   "sources/:source_video_id/cut/export", to: "cuts#export_cut"
     get    "sources/:source_video_id/cut/export/download", to: "cuts#download_export", as: :download_cut_export
+
+    # Opt-in AI packaging: titles, briefs, frame extraction/ranking, audience match.
+    get    "sources/:source_video_id/cut/packaging", to: "cuts#packaging_status", as: :cut_packaging
+    post   "sources/:source_video_id/cut/packaging", to: "cuts#package"
     get "niche",    to: "niche#show",     as: :niche
     get "niche/channels/:channel_id", to: "channels#show", as: :niche_channel
     get "niche/channels/:channel_id/videos/:video_id", to: "videos#show", as: :niche_channel_video

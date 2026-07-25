@@ -1,0 +1,38 @@
+<%#
+  Opt-in AI packaging, wrapped in a self-refreshing turbo-frame. The action buttons
+  enqueue the packaging jobs; the frame polls while any pass is running (or right
+  after an action, via flash[:working]) so titles/briefs/frames/ranking/audience
+  results appear live. Each pass is per-item isolated and cached, so re-running is
+  cheap. Only meaningful once the cut has items.
+%>
+<% items = @cut.cut_items.order(:position).includes(:topic) %>
+<% running = packaging_running?(@cut) %>
+<% working = running || flash[:working] %>
+<%= turbo_frame_tag "cut_packaging",
+      src: (working ? project_cut_packaging_path(@project, @source_video) : nil),
+      data: (working ? { controller: "poll" } : {}) do %>
+  <section class="card">
+    <div class="flex items-center justify-between gap-3 mb-3">
+      <div class="eyebrow">AI packaging <%= tag.span("· working…", class: "text-accent") if running %></div>
+    </div>
+
+    <% if items.any? %>
+      <div class="flex flex-wrap gap-1.5 mb-3">
+        <% { "title" => "Titles", "thumb_brief" => "Briefs", "frames" => "Extract frames", "rank" => "Rank frames", "audience" => "Match audience" }.each do |kind, label| %>
+          <%= button_to label, project_cut_packaging_path(@project, @source_video),
+                method: :post, params: { kind: kind }, disabled: running, class: "btn btn-ai btn-xs" %>
+        <% end %>
+      </div>
+
+      <% if @audience&.state_done? && @audience.payload.present? %>
+        <div class="m text-ink-2 mb-3">Audience match: <%= @audience.payload.size %> topic(s) deliver a requested thing.</div>
+      <% end %>
+
+      <div class="flex flex-col gap-2 overflow-y-auto" style="max-height: calc(100vh - 26rem)">
+        <%= render partial: "packaging_item", collection: items, as: :item %>
+      </div>
+    <% else %>
+      <p class="m text-ink-3">Add items to the cut to generate their titles, briefs and thumbnail frames.</p>
+    <% end %>
+  </section>
+<% end %>
