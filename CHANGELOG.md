@@ -37,6 +37,10 @@ compatibility that does not exist.
   of downloading and transcribing again. Metadata problems degrade to a warning, a missing
   chat replay is fine, and an essential failure (download or transcription) marks the video
   as errored and raises a Radar alert. Transcription runs one at a time on the GPU queue.
+- The Cut Room screen: paste a YouTube link to submit a video for processing, see the
+  project's source videos listed with their status, and watch an in-flight video's stage
+  and progress update live (the row refreshes itself every couple of seconds until it
+  finishes or fails). Everything is scoped to the project.
 
 ## [0.2.0] - 2026-07-25
 
