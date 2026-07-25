@@ -18,6 +18,14 @@ compatibility that does not exist.
 
 ### Added
 
+- Opt-in AI title enrichment (`Enrichment::VideoEnricher` + `Enrichment::EnrichJob`),
+  built on a provider-agnostic LLM seam (`Adapters::SelectionLlm` over RubyLLM, Claude
+  by default). It never runs on a schedule — only from an explicit action — and forces
+  a deterministic structured extraction of a title's semantic attributes, storing the
+  raw output merged with code-derived boolean facets in `video_attributes`. Every
+  result is keyed by a content hash so it is paid for once and shared across projects:
+  an unchanged title is a free cache hit, a changed title re-analyses. Per-video
+  isolation records a visible error and clears the hash so the next click retries.
 - Automatic comment collection (`Competitors::CommentCollection`, wired into the
   snapshot cycle): a consumer of the `outlier_crossed` events, it collects the top
   comments of every definitive outlier still owed them, deterministically and with
