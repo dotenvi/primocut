@@ -24,6 +24,10 @@ compatibility that does not exist.
   itself until it finishes). Each topic shows its time range, clip-potential score and
   summary, and can be kept, discarded, or reopened — an opinion that persists across
   sessions. Everything is scoped to the project.
+- The Cut Room — second section: compose the cut and render its clips. Add a topic
+  (its range snapshotted) or a manual time range to the cut, reorder the items, and
+  remove them; then render the clips in the background and watch each item's state
+  move from queued through cutting to rendered (or errored) live as the render runs.
 - Opt-in AI packaging for a cut's clips (`Cuts::PackagingService`, four explicit
   actions): propose titles and a thumbnail brief per clip — each grounded only in the
   niche's measured packaging patterns, with any citation the code cannot match back
