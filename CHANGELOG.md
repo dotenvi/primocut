@@ -16,6 +16,13 @@ compatibility that does not exist.
 
 ## [Unreleased]
 
+### Fixed
+
+- `rake primocut:doctor` no longer reports NVENC as unavailable when it actually
+  works. The probe encoded a frame too small for NVENC on ffmpeg 7.x (rejected with
+  "-22 Invalid argument"), producing a false negative; it now encodes a valid tiny
+  clip.
+
 ## [0.5.0] - 2026-07-25
 
 ### Added
