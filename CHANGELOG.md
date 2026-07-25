@@ -16,6 +16,8 @@ compatibility that does not exist.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-25
+
 ### Added
 
 - Deterministic packaging input (`Metrics::PackagingContext`): a pure read that turns a
@@ -134,5 +136,6 @@ compatibility that does not exist.
   detail with the channel-spread strip, and the Radar feed and Activity log — all
   drilling down through project → channel → video with per-project leakage guards.
 
-[unreleased]: https://github.com/dotenvi/primocut/compare/v0.1.0...HEAD
+[unreleased]: https://github.com/dotenvi/primocut/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/dotenvi/primocut/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/dotenvi/primocut/releases/tag/v0.1.0
