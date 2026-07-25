@@ -16,6 +16,16 @@ compatibility that does not exist.
 
 ## [Unreleased]
 
+### Added
+
+- Submit a YouTube video for processing (`SourceVideo`), and the shell-out adapters
+  the processing runs on: `Adapters::Ytdlp` (metadata plus audio download normalized
+  to 16kHz mono, with a player-client fallback, resume and source cleanup) and
+  `Adapters::ChatDownloader` (live-chat replay via `chat_downloader` with a yt-dlp
+  fallback, degrading to nothing rather than blocking). `Pipeline::ChatSignals` turns
+  a chat replay into per-minute density with laugh/emote counts and z-score peaks.
+  These are the building blocks the processing pipeline is assembled from next.
+
 ## [0.2.0] - 2026-07-25
 
 ### Added
