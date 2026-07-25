@@ -15,12 +15,12 @@ class Adapters::FfmpegTest < ActiveSupport::TestCase
       @handler = handler
     end
 
-    def capture(cmd)
+    def capture(cmd, chdir: nil)
       @calls << cmd
       @handler.call(:capture, cmd)
     end
 
-    def run(cmd)
+    def run(cmd, chdir: nil)
       @calls << cmd
       @handler.call(:run, cmd)
     end
@@ -142,6 +142,46 @@ class Adapters::FfmpegTest < ActiveSupport::TestCase
       names = Ffmpeg.new(shell: shell)
         .extract_frames("clip.mp4", dir, count: 2, scene_threshold: 0.3, regenerate: true)
       assert_equal %w[frame-001.jpg frame-002.jpg], names
+    end
+  end
+
+  # ------------------------- concat master -------------------------
+
+  test "build_concat_content lists the clips and escapes single quotes" do
+    content = Ffmpeg.new(shell: FakeShell.new { nil }).build_concat_content([ "001-a.mp4", "002-o'brien.mp4" ])
+    assert_equal "file '001-a.mp4'\nfile '002-o'\\''brien.mp4'\n", content
+  end
+
+  test "concat_master defaults to a stream copy with cwd = the package dir" do
+    Dir.mktmpdir do |dir|
+      seen = nil
+      shell = FakeShell.new do |_k, cmd|
+        seen = cmd
+        File.write(File.join(dir, "master.mp4"), "m")
+      end
+      encoder, warning = Ffmpeg.new(shell: shell)
+        .concat_master([ "001-a.mp4" ], File.join(dir, "master.mp4"), cwd: dir)
+
+      assert_equal "copy", encoder
+      assert_nil warning
+      assert_includes seen, "concat"
+      assert_includes seen, "copy"
+      assert_not File.exist?(File.join(dir, "concat.txt")), "the concat listing is cleaned up"
+    end
+  end
+
+  test "concat_master upscale falls back from nvenc to libx264" do
+    Dir.mktmpdir do |dir|
+      shell = FakeShell.new do |_k, cmd|
+        raise Adapters::Shell::CommandError, "no nvenc" if cmd.include?("h264_nvenc")
+
+        File.write(File.join(dir, "master.mp4"), "m")
+      end
+      encoder, warning = Ffmpeg.new(shell: shell)
+        .concat_master([ "001-a.mp4" ], File.join(dir, "master.mp4"), cwd: dir, upscale: true)
+
+      assert_equal "libx264", encoder
+      assert_match(/upscaled the master with libx264/, warning)
     end
   end
 end

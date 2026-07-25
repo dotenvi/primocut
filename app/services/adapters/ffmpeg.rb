@@ -17,13 +17,16 @@ module Adapters
     # no fallback (the user asked for it explicitly).
     NVENC_FALLBACK = %w[nvenc libx264].freeze
 
+    attr_reader :upscale_height
+
     def initialize(
       shell: Shell.new,
       ffmpeg_cmd: self.class.default_ffmpeg_cmd,
       ffprobe_cmd: self.class.default_ffprobe_cmd,
       nvenc_cq: self.class.default_nvenc_cq,
       x264_crf: self.class.default_x264_crf,
-      audio_bitrate: self.class.default_audio_bitrate
+      audio_bitrate: self.class.default_audio_bitrate,
+      upscale_height: self.class.default_upscale_height
     )
       @shell = shell
       @ffmpeg_cmd = ffmpeg_cmd
@@ -31,6 +34,7 @@ module Adapters
       @nvenc_cq = nvenc_cq
       @x264_crf = x264_crf
       @audio_bitrate = audio_bitrate
+      @upscale_height = upscale_height
     end
 
     def self.default_ffmpeg_cmd = (ENV["FFMPEG_CMD"] || "ffmpeg").split
@@ -39,6 +43,7 @@ module Adapters
     def self.default_nvenc_cq = (ENV["RENDER_NVENC_CQ"].presence || "19").to_i
     def self.default_x264_crf = (ENV["RENDER_X264_CRF"].presence || "18").to_i
     def self.default_audio_bitrate = ENV["RENDER_AUDIO_BITRATE"].presence || "192k"
+    def self.default_upscale_height = (ENV["EXPORT_UPSCALE_HEIGHT"].presence || "1440").to_i
 
     # Whether FFmpeg lists the `h264_nvenc` encoder at all (a cheap pre-check).
     def nvenc_listed?
@@ -127,7 +132,71 @@ module Adapters
       frames.map { |p| p.basename.to_s }
     end
 
+    # Build the cut's master by concatenating its clips IN ORDER. `filenames` are
+    # the clip files' bare names inside `cwd` (the package dir), so the concat
+    # listing stays relative and FFmpeg runs with that working directory.
+    #
+    # Default: a concat-demuxer STREAM COPY (identical clip profiles make it valid)
+    # — seconds, no re-encode. `upscale: true` re-encodes, scaling to the upscale
+    # height (NVENC -> libx264 fallback), because YouTube assigns better codecs to
+    # >=1440p uploads. Returns [encoder_used, warning].
+    def concat_master(filenames, out, cwd:, upscale: false)
+      out = Pathname(out)
+      out.dirname.mkpath
+      cwd = Pathname(cwd)
+      concat = cwd.join("concat.txt")
+      concat.write(build_concat_content(filenames))
+
+      begin
+        if !upscale
+          @shell.run(build_master_cmd(concat, out, encoder: "copy"), chdir: cwd)
+          return [ "copy", nil ]
+        end
+
+        last = nil
+        NVENC_FALLBACK.each do |encoder|
+          @shell.run(build_master_cmd(concat, out, encoder:), chdir: cwd)
+          warning = nil
+          unless encoder == NVENC_FALLBACK.first
+            warning = "NVENC unavailable — upscaled the master with #{encoder} (slower software encode)."
+            Rails.logger.warn(warning)
+          end
+          return [ encoder, warning ]
+        rescue StandardError => e
+          last = e
+          Rails.logger.warn("Master encoder #{encoder} failed: #{e.message}")
+        end
+        raise Error, "Failed to build the upscaled master. Last error: #{last}"
+      ensure
+        concat.delete if concat.exist? # the listing is not part of the deliverable
+      end
+    end
+
+    # The concat-demuxer input listing the clip files (single quotes escaped to the
+    # POSIX `'\''` form). A block replacement avoids gsub backreference parsing.
+    def build_concat_content(filenames)
+      filenames.map { |fn| "file '#{fn.gsub("'") { "'\\''" }}'" }.join("\n") + "\n"
+    end
+
     private
+
+    def build_master_cmd(concat_path, out, encoder:)
+      base = [
+        *@ffmpeg_cmd, "-nostdin", "-hide_banner", "-loglevel", "error", "-stats", "-y",
+        "-f", "concat", "-safe", "0", "-i", concat_path.to_s
+      ]
+      return [ *base, "-c", "copy", "-movflags", "+faststart", out.to_s ] if encoder == "copy"
+
+      vf = [ "-vf", "scale=-2:#{@upscale_height}:flags=lanczos" ]
+      vcodec =
+        if encoder == "libx264"
+          [ "-c:v", "libx264", "-preset", "medium", "-crf", @x264_crf.to_s, "-pix_fmt", "yuv420p" ]
+        else
+          [ "-c:v", "h264_nvenc", "-preset", "p5", "-tune", "hq", "-rc", "vbr",
+            "-cq", @nvenc_cq.to_s, "-b:v", "0", "-pix_fmt", "yuv420p" ]
+        end
+      [ *base, *vf, *vcodec, "-c:a", "aac", "-b:a", @audio_bitrate, "-movflags", "+faststart", out.to_s ]
+    end
 
     def build_encode_cmd(section, out, local_start:, local_dur:, encoder:)
       base = [

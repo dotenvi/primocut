@@ -16,7 +16,12 @@ module Cuts
 
     # `NNN-slug.mp4`, NNN = 1-based position in the composition, zero-padded to 3.
     def clip_filename(position, title)
-      format("%03d-%s.mp4", position + 1, slugify(title))
+      clip_export_name(position, title, "mp4")
+    end
+
+    # `NNN-slug.ext`, NNN = 1-based export position (matches the clip naming).
+    def clip_export_name(position, title, ext)
+      format("%03d-%s.%s", position + 1, slugify(title), ext)
     end
   end
 end
