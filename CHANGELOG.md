@@ -25,6 +25,12 @@ compatibility that does not exist.
   fallback, degrading to nothing rather than blocking). `Pipeline::ChatSignals` turns
   a chat replay into per-minute density with laugh/emote counts and z-score peaks.
   These are the building blocks the processing pipeline is assembled from next.
+- Transcription over a thin Python sidecar (`sidecar/primocut_engine.py`, driven by
+  `Adapters::TranscriptionEngine`): GPU transcription stays in Python (faster-whisper),
+  while the rest of the app is Ruby. The transcript is handed back through a file and a
+  small JSON status envelope; the sidecar runs in its own process group under a killable
+  timeout, so a hung run can never strand a process holding the GPU. It preloads the
+  WSL2 pip CUDA libraries and degrades the compute type down the VRAM ladder on its own.
 
 ## [0.2.0] - 2026-07-25
 
