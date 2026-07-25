@@ -1,0 +1,9 @@
+#!/usr/bin/env ruby
+# The PRIMOCUT testing CLI (Thor). Boots the full Rails environment so commands
+# reach the same models, services and adapters the app uses, then dispatches.
+# Product flows live in the web UI; this is for driving the pipeline, snapshots,
+# metrics dumps and exports from the terminal. `doctor` is `rake primocut:doctor`.
+require_relative "../config/environment"
+require_relative "../lib/primocut/cli"
+
+Primocut::Cli.start(ARGV)
