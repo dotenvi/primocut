@@ -28,6 +28,9 @@ compatibility that does not exist.
   (its range snapshotted) or a manual time range to the cut, reorder the items, and
   remove them; then render the clips in the background and watch each item's state
   move from queued through cutting to rendered (or errored) live as the render runs.
+- The Cut Room — third section: export the cut. Package the rendered clips into a
+  bundle (optionally skipping the master or upscaling it to 1440p), watch the build
+  status live, and download the finished zip. Export needs at least one rendered clip.
 - Opt-in AI packaging for a cut's clips (`Cuts::PackagingService`, four explicit
   actions): propose titles and a thumbnail brief per clip — each grounded only in the
   niche's measured packaging patterns, with any citation the code cannot match back
