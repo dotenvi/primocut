@@ -18,6 +18,13 @@ compatibility that does not exist.
 
 ### Added
 
+- Export a cut into a deliverable bundle (`Cuts::Export` + `CutExportJob`): the cut's
+  rendered clips are copied (never moved) into a timestamped package, each with a
+  clip-relative `.srt` cut from the transcript, alongside a concatenated master (a
+  fast stream copy by default, or an opt-in 1440p re-encode) and both a machine
+  `manifest.json` and a human `manifest.md` with clickable timestamps back into the
+  source video — then zipped. Un-rendered items fail the export with a clear message
+  by default, or can be rendered first on request.
 - Render a cut's clips in the background (`Cuts::Render` + `CutRenderJob`): each item
   downloads only its section and re-encodes to a frame-exact MP4, with per-item
   isolation (one clip that fails is flagged with its error and the rest still render)
