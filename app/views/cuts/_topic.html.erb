@@ -1,0 +1,36 @@
+<%#
+  One topic row: title, its [start–end] range and clip-potential score, the summary,
+  and the triage controls (Keep / Discard / Open). `@triage` maps topic_id to its
+  TopicTriage (nil = open). The active opinion is tagged; the buttons post to
+  CutsController#triage and reload the page.
+%>
+<% triage = @triage[topic.id] %>
+<div class="card <%= "opacity-60" if triage&.state == "discarded" %>">
+  <div class="flex items-start gap-3">
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2">
+        <span class="text-ink truncate"><%= topic.title %></span>
+        <%= triage_tag(triage) %>
+      </div>
+      <div class="m text-ink-3 mt-0.5 font-mono">
+        <%= clock(topic.start_s) %>–<%= clock(topic.end_s) %> · potential <%= topic_score_label(topic) %>
+      </div>
+      <% if topic.summary.present? %>
+        <div class="m text-ink-2 mt-1"><%= topic.summary %></div>
+      <% end %>
+    </div>
+
+    <div class="flex items-center gap-1 shrink-0">
+      <%= button_to "Keep", project_topic_triage_path(@project, @source_video, topic),
+            method: :post, params: { state: "maybe" },
+            class: "btn btn-xs #{'chip on' if triage&.state == 'maybe'}" %>
+      <%= button_to "Discard", project_topic_triage_path(@project, @source_video, topic),
+            method: :post, params: { state: "discarded" },
+            class: "btn btn-xs #{'chip on' if triage&.state == 'discarded'}" %>
+      <% if triage %>
+        <%= button_to "Open", project_topic_triage_path(@project, @source_video, topic),
+              method: :post, params: { state: "open" }, class: "btn btn-xs" %>
+      <% end %>
+    </div>
+  </div>
+</div>

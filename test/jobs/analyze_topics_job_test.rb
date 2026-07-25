@@ -17,4 +17,13 @@ class AnalyzeTopicsJobTest < ActiveSupport::TestCase
 
     assert_equal [ video ], service.calls
   end
+
+  test "restores the video to done when it owned the analyzing state" do
+    project = Project.create!(name: "Niche")
+    video = project.source_videos.create!(youtube_id: "abcdefghijk", url: "https://y/1", status: "analyzing")
+
+    AnalyzeTopicsJob.perform_now(video.id, service: FakeService.new)
+
+    assert video.reload.done?
+  end
 end

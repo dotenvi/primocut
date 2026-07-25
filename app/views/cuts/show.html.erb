@@ -1,0 +1,18 @@
+<% content_for :title, "Cut Room — #{@source_video.title.presence || @source_video.youtube_id}" %>
+
+<div class="flex items-end justify-between gap-3 mb-5">
+  <div>
+    <div class="eyebrow"><%= @project.name %> · Cut Room</div>
+    <h1 class="truncate max-w-[720px]"><%= @source_video.title.presence || @source_video.youtube_id %></h1>
+    <div class="m text-ink-3 mt-1">
+      <%= link_to @source_video.channel.presence || @source_video.youtube_id, @source_video.url, target: "_blank", rel: "noopener", class: "hover:text-ink-2" %>
+    </div>
+  </div>
+  <%= link_to "← Back", project_sources_path(@project), class: "btn" %>
+</div>
+
+<% if flash[:notice] %>
+  <div class="card mb-4 bg-accent-bg border-accent-line text-accent text-[13px]"><%= flash[:notice] %></div>
+<% end %>
+
+<%= render "topics" %>

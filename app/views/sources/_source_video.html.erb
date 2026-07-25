@@ -26,5 +26,9 @@
     <% end %>
 
     <%= source_status_tag(source_video) %>
+
+    <% if source_video.transcript %>
+      <%= link_to "Cut Room →", project_cut_room_path(@project, source_video), class: "btn btn-xs" %>
+    <% end %>
   </div>
 <% end %>

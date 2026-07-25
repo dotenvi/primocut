@@ -19,6 +19,12 @@ Rails.application.routes.draw do
     get  "sources",     to: "sources#index",  as: :sources
     post "sources",     to: "sources#create"
     get  "sources/:id", to: "sources#show",   as: :source # single-row polling frame
+
+    # The Cut Room, per source video. Built section by section: topics + triage first.
+    get  "sources/:source_video_id/cut_room", to: "cuts#show", as: :cut_room
+    get  "sources/:source_video_id/topics", to: "cuts#topics", as: :topics # live-progress frame
+    post "sources/:source_video_id/topics/analyze", to: "cuts#analyze_topics", as: :analyze_topics
+    post "sources/:source_video_id/topics/:topic_id/triage", to: "cuts#triage", as: :topic_triage
     get "niche",    to: "niche#show",     as: :niche
     get "niche/channels/:channel_id", to: "channels#show", as: :niche_channel
     get "niche/channels/:channel_id/videos/:video_id", to: "videos#show", as: :niche_channel_video

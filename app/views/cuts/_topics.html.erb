@@ -1,0 +1,36 @@
+<%#
+  The topics section, wrapped in a self-refreshing turbo-frame. While the source
+  video is "analyzing" the frame carries a `src` and the poll controller, so it
+  re-fetches itself (CutsController#topics) every couple of seconds and the topics
+  appear live when the LLM pass finishes; a terminal state drops both and polling
+  stops. Same pattern as the source-videos row.
+%>
+<% analyzing = @source_video.analyzing? %>
+<%= turbo_frame_tag "cut_topics",
+      src: (analyzing ? project_topics_path(@project, @source_video) : nil),
+      data: (analyzing ? { controller: "poll" } : {}) do %>
+  <section>
+    <div class="flex items-center justify-between gap-3 mb-3">
+      <div class="eyebrow">Topics <span class="text-ink-3">· <%= @topics.size %></span></div>
+      <%= button_to analyzing ? "Analyzing…" : (@topics.any? ? "Regenerate topics" : "Analyze topics"),
+            project_analyze_topics_path(@project, @source_video),
+            method: :post, disabled: analyzing, class: "btn btn-ai btn-xs",
+            form: { data: { turbo_confirm: (@topics.any? && !analyzing ? "Regenerating replaces the current topics and their triage. Continue?" : nil) } } %>
+    </div>
+
+    <% if analyzing %>
+      <div class="card flex items-center gap-2 text-accent text-[13px]">
+        <span class="inline-block w-2 h-2 rounded-full bg-accent animate-pulse"></span>
+        Analyzing the transcript — topics will appear here as soon as they are ready.
+      </div>
+    <% elsif @topics.any? %>
+      <div class="flex flex-col gap-2 overflow-y-auto" style="max-height: calc(100vh - 15rem)">
+        <%= render partial: "topic", collection: @topics, as: :topic %>
+      </div>
+    <% elsif !@source_video.transcript %>
+      <p class="m text-ink-3">This video has no transcript yet — process it before analyzing topics.</p>
+    <% else %>
+      <p class="m text-ink-3">No topics yet. Use <em>Analyze topics</em> to let the AI segment the transcript.</p>
+    <% end %>
+  </section>
+<% end %>
