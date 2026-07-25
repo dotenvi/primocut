@@ -31,6 +31,12 @@ compatibility that does not exist.
   small JSON status envelope; the sidecar runs in its own process group under a killable
   timeout, so a hung run can never strand a process holding the GPU. It preloads the
   WSL2 pip CUDA libraries and degrades the compute type down the VRAM ladder on its own.
+- Process a submitted source video end to end (metadata → audio → transcription → chat),
+  run as a background job. Progress is persisted stage by stage for the UI to follow, and
+  every artifact is cached: a re-run reuses an existing transcript or chat signal instead
+  of downloading and transcribing again. Metadata problems degrade to a warning, a missing
+  chat replay is fine, and an essential failure (download or transcription) marks the video
+  as errored and raises a Radar alert. Transcription runs one at a time on the GPU queue.
 
 ## [0.2.0] - 2026-07-25
 
