@@ -31,6 +31,11 @@ compatibility that does not exist.
 - The Cut Room — third section: export the cut. Package the rendered clips into a
   bundle (optionally skipping the master or upscaling it to 1440p), watch the build
   status live, and download the finished zip. Export needs at least one rendered clip.
+- The Cut Room — fourth section: opt-in AI packaging. Generate per-clip titles and
+  thumbnail briefs, extract and rank candidate thumbnail frames, and match the niche's
+  audience requests to the cut's topics — each from its own button, with the results
+  (titles, brief summary, best frame, audience match) appearing live per item as the
+  passes run. Every pass is cached, so re-running is cheap.
 - Opt-in AI packaging for a cut's clips (`Cuts::PackagingService`, four explicit
   actions): propose titles and a thumbnail brief per clip — each grounded only in the
   niche's measured packaging patterns, with any citation the code cannot match back
