@@ -18,6 +18,14 @@ compatibility that does not exist.
 
 ### Added
 
+- Opt-in AI packaging for a cut's clips (`Cuts::PackagingService`, four explicit
+  actions): propose titles and a thumbnail brief per clip — each grounded only in the
+  niche's measured packaging patterns, with any citation the code cannot match back
+  dropped rather than invented; extract candidate thumbnail frames deterministically
+  (no AI); rank those frames against the brief with a vision pass; and match the
+  niche's audience requests to the source video's topics (cached, and skipped
+  entirely when there is no demand). Each pass is per-item isolated and paid for once
+  by a content hash over the clip and the patterns that shaped it.
 - Break a source video's transcript into topics with AI (`Cuts::Selection` +
   `AnalyzeTopicsJob`): a long transcript is windowed with overlap and each window is
   segmented into macro topics by the LLM, which returns segment indices (never
