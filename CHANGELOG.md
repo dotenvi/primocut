@@ -18,6 +18,14 @@ compatibility that does not exist.
 
 ### Added
 
+- Deterministic packaging input (`Metrics::PackagingContext`): a pure read that turns a
+  project's niche patterns into the material an AI packaging pass would cite —
+  `differential` (the Wilson-gated attributes that separate outliers from the control,
+  built with the same primitive the niche view uses so the two never disagree),
+  `conventions` (booleans near-universal across the niche — table-stakes, never
+  double-counted as a differential), `carries_value` (recurring title names that appear
+  disproportionately in outliers, gated by minimum videos and lift), and real outlier
+  `examples`. A niche where nothing separates and nothing carries is reported `flat`.
 - Opt-in AI comment synthesis (the `comments` kind on `Enrichment::VideoEnricher`, plus
   `Enrichment::Comments` and `Enrichment::AudienceRequests`): reads a video's collected
   comments and records the recurring themes, the audience's explicit requests, and the
