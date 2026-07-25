@@ -18,6 +18,15 @@ compatibility that does not exist.
 
 ### Added
 
+- Break a source video's transcript into topics with AI (`Cuts::Selection` +
+  `AnalyzeTopicsJob`): a long transcript is windowed with overlap and each window is
+  segmented into macro topics by the LLM, which returns segment indices (never
+  invented timestamps) that the code resolves into real seconds. Window-overlap
+  duplicates are consolidated, and a window that fails permanently keeps whatever was
+  already found rather than losing the pass. Each topic can be triaged per source
+  video (`Cuts::Triage` — keep as "maybe", "discard", or clear back to open),
+  persisted across sessions; regenerating the topics replaces the set and drops stale
+  triage.
 - Export a cut into a deliverable bundle (`Cuts::Export` + `CutExportJob`): the cut's
   rendered clips are copied (never moved) into a timestamped package, each with a
   clip-relative `.srt` cut from the transcript, alongside a concatenated master (a
