@@ -18,6 +18,12 @@ compatibility that does not exist.
 
 ### Added
 
+- The Cut Room, per source video — first section: triage its AI topics. Open a
+  processed video's Cut Room from the sources list, run (or regenerate) the topic
+  analysis, and watch the topics appear live while the pass runs (the panel refreshes
+  itself until it finishes). Each topic shows its time range, clip-potential score and
+  summary, and can be kept, discarded, or reopened — an opinion that persists across
+  sessions. Everything is scoped to the project.
 - Opt-in AI packaging for a cut's clips (`Cuts::PackagingService`, four explicit
   actions): propose titles and a thumbnail brief per clip — each grounded only in the
   niche's measured packaging patterns, with any citation the code cannot match back
