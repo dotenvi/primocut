@@ -1,0 +1,44 @@
+<%#
+  The export bundle, wrapped in a self-refreshing turbo-frame. While the bundle is
+  being built (queued/packaging) the frame polls (CutsController#export_status) and
+  the status updates live; when it settles it stops and the download link appears.
+  The export packages the cut's rendered clips, so it needs at least one item.
+%>
+<% export = @cut.export %>
+<% rendered_any = @cut.cut_items.joins(:clip).where(clips: { state: "done" }).exists? %>
+<% building = exporting?(export) %>
+<%= turbo_frame_tag "cut_export",
+      src: (building ? project_cut_export_path(@project, @source_video) : nil),
+      data: (building ? { controller: "poll" } : {}) do %>
+  <section class="card">
+    <div class="flex items-center justify-between gap-3 mb-2">
+      <div class="eyebrow">Export</div>
+      <%= export_state_tag(export) %>
+    </div>
+
+    <% if export&.state_error? && export.error.present? %>
+      <div class="m text-err mb-2"><%= export.error %></div>
+    <% end %>
+
+    <% if export&.state_done? && export.zip_rel_path.present? %>
+      <div class="flex items-center gap-2 mb-3">
+        <%= link_to "Download zip", project_download_cut_export_path(@project, @source_video),
+              class: "btn btn-pri btn-xs", data: { turbo: false } %>
+        <span class="m text-ink-3"><%= export.item_count %> clip(s)<%= " · 1440p" if export.upscaled %><%= " · no master" if export.skip_master %></span>
+      </div>
+    <% end %>
+
+    <%= form_with url: project_cut_export_path(@project, @source_video), method: :post, class: "flex items-center gap-3 flex-wrap" do |f| %>
+      <label class="m text-ink-2 flex items-center gap-1.5">
+        <%= f.check_box :skip_master, { checked: false }, "1", "0" %> Skip master
+      </label>
+      <label class="m text-ink-2 flex items-center gap-1.5">
+        <%= f.check_box :upscale, { checked: false }, "1", "0" %> Upscale 1440p
+      </label>
+      <%= f.submit building ? "Exporting…" : "Export cut", disabled: building || !rendered_any, class: "btn btn-xs" %>
+      <% unless rendered_any %>
+        <span class="m text-ink-3">Render at least one clip first.</span>
+      <% end %>
+    <% end %>
+  </section>
+<% end %>

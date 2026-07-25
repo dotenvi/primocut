@@ -32,6 +32,11 @@ Rails.application.routes.draw do
     delete "sources/:source_video_id/cut/items/:id", to: "cuts#remove_item", as: :cut_item
     post   "sources/:source_video_id/cut/items/:id/move", to: "cuts#move_item", as: :move_cut_item
     post   "sources/:source_video_id/cut/render", to: "cuts#render_cut", as: :render_cut
+
+    # The export bundle: enqueue, poll its status, download the zip.
+    get    "sources/:source_video_id/cut/export", to: "cuts#export_status", as: :cut_export
+    post   "sources/:source_video_id/cut/export", to: "cuts#export_cut"
+    get    "sources/:source_video_id/cut/export/download", to: "cuts#download_export", as: :download_cut_export
     get "niche",    to: "niche#show",     as: :niche
     get "niche/channels/:channel_id", to: "channels#show", as: :niche_channel
     get "niche/channels/:channel_id/videos/:video_id", to: "videos#show", as: :niche_channel_video

@@ -1,8 +1,9 @@
 require "test_helper"
+require "tmpdir"
+require "fileutils"
 
-# The Cut Room, per source video — section 1: topics + triage. Scoped to the
-# project (leakage guard). Analyzing enqueues the LLM pass; triage records the
-# per-source-video opinion.
+# The Cut Room, per source video: topics + triage, composing the cut, and the
+# export bundle. Scoped to the project (leakage guard).
 class CutRoomScreenTest < ActionDispatch::IntegrationTest
   include ActiveJob::TestHelper
 
@@ -119,6 +120,46 @@ class CutRoomScreenTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "turbo-frame#cut_composition"
     assert_select "aside", false
+  end
+
+  # ------------------------- section 3: export -------------------------
+
+  test "export enqueues the job, seeds the export row, and polls" do
+    cut = @video.cuts.create!
+    item = cut.cut_items.create!(position: 0, topic: @topic, start_s: 100, end_s: 130)
+    item.create_clip!(source_video_id: @video.id, cut_id: cut.id, position: 0, rel_path: "x", state: "done")
+
+    assert_enqueued_with(job: CutExportJob) do
+      post project_cut_export_path(@project, @video), params: { skip_master: "1" }
+    end
+    assert cut.reload.export.state_queued?
+
+    get project_cut_room_path(@project, @video)
+    assert_select "turbo-frame#cut_export[src][data-controller=?]", "poll"
+  end
+
+  test "the finished export offers the zip for download" do
+    Dir.mktmpdir do |dir|
+      ENV["EXPORTS_DIR"] = dir
+      cut = @video.cuts.create!
+      zip_rel = "#{@video.youtube_id}/#{cut.id}/best-20260101.zip"
+      full = File.join(dir, zip_rel)
+      FileUtils.mkdir_p(File.dirname(full))
+      File.write(full, "ZIPBYTES")
+      cut.create_export!(source_video_id: @video.id, state: "done", zip_rel_path: zip_rel, item_count: 2)
+
+      get project_download_cut_export_path(@project, @video)
+      assert_response :success
+      assert_equal "ZIPBYTES", response.body
+    ensure
+      ENV.delete("EXPORTS_DIR")
+    end
+  end
+
+  test "download is not found before the export is ready" do
+    @video.cuts.create!
+    get project_download_cut_export_path(@project, @video)
+    assert_response :not_found
   end
 
   test "a source video from another project is not found here (leakage guard)" do

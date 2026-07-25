@@ -42,4 +42,23 @@ module CutsHelper
   def rendering?(cut)
     cut.status_rendering? || cut.cut_items.any? { |i| i.clip && %w[queued downloading_section aligning cutting].include?(i.clip.state) }
   end
+
+  # An export's state → its tag. `export` may be nil (never exported).
+  EXPORT_STATE_TAG = {
+    nil => [ "Not exported", "bg-card2 text-ink-3 border-line-strong" ],
+    "queued" => [ "Queued", "bg-card2 text-ink-2 border-line-strong" ],
+    "packaging" => [ "Packaging", "bg-accent-bg text-accent border-accent-line" ],
+    "done" => [ "Ready", "bg-ok-bg text-ok border-ok-line" ],
+    "error" => [ "Error", "bg-err-bg text-err border-err-line" ]
+  }.freeze
+
+  def export_state_tag(export)
+    label, klass = EXPORT_STATE_TAG.fetch(export&.state, EXPORT_STATE_TAG[nil])
+    tag.span(label, class: "tag #{klass}")
+  end
+
+  # True while the export bundle is still being built (drives the export polling).
+  def exporting?(export)
+    export && %w[queued packaging].include?(export.state)
+  end
 end

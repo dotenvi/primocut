@@ -76,6 +76,28 @@ class CutsController < ProjectScopedController
     redirect_to cut_room_path, notice: "Rendering the clips…"
   end
 
+  # The export frame alone (no layout), re-fetched while the bundle is being built.
+  def export_status
+    render partial: "export"
+  end
+
+  # Export the cut into a deliverable bundle (background). The export row is seeded
+  # to "queued" up front so the frame polls immediately.
+  def export_cut
+    export_row.update!(state: "queued", error: "")
+    CutExportJob.perform_later(@cut.id, skip_master: flag(:skip_master), upscale: flag(:upscale))
+    redirect_to cut_room_path, notice: "Exporting the cut…"
+  end
+
+  # Send the finished zip. A 404 until the export is done and a zip exists.
+  def download_export
+    export = @cut.export
+    path = export&.zip_rel_path.presence && File.join(Cuts::Export.default_exports_dir, export.zip_rel_path)
+    raise ActiveRecord::RecordNotFound unless export&.state_done? && path && File.exist?(path)
+
+    send_file path, type: "application/zip", filename: File.basename(path)
+  end
+
   private
 
   def set_source_video
@@ -123,5 +145,13 @@ class CutsController < ProjectScopedController
 
   def cut_room_path
     project_cut_room_path(@project, @source_video)
+  end
+
+  def export_row
+    @cut.export || @cut.create_export!(source_video_id: @source_video.id)
+  end
+
+  def flag(name)
+    params[name] == "1"
   end
 end
