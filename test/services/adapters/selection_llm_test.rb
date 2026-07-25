@@ -18,7 +18,12 @@ class Adapters::SelectionLlmTest < ActiveSupport::TestCase
     def with_instructions(system) = tap { @calls[:system] = system }
     def with_temperature(t) = tap { @calls[:temperature] = t }
     def with_schema(schema) = tap { @calls[:schema] = schema }
-    def ask(user) = (@calls[:user] = user) && FakeMessage.new(@content)
+
+    def ask(user, with: nil)
+      @calls[:user] = user
+      @calls[:with_bytes] = with ? File.binread(with) : nil # read the temp file before it is unlinked
+      FakeMessage.new(@content)
+    end
   end
 
   test "forces a deterministic structured extraction and returns the hash" do
@@ -40,6 +45,17 @@ class Adapters::SelectionLlmTest < ActiveSupport::TestCase
     assert_raises(Adapters::SelectionLlm::ExtractionError) do
       llm.select(system: "s", user: "u", schema: {})
     end
+  end
+
+  test "attaches raw image bytes for a vision extraction" do
+    fake = FakeChat.new({ "face_count" => 1 })
+    llm = Adapters::SelectionLlm.new(chat_factory: ->(_model) { fake })
+    bytes = "\xFF\xD8\xFF and the rest of a jpeg".b
+
+    out = llm.select(system: "s", user: "Analyse this thumbnail.", schema: {}, image: bytes)
+
+    assert_equal({ "face_count" => 1 }, out)
+    assert_equal bytes, fake.calls[:with_bytes] # bytes reached the chat via a temp file
   end
 
   test "the per-call model override reaches the chat factory" do

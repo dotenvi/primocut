@@ -17,7 +17,7 @@ class Enrichment::VideoEnricherTest < ActiveSupport::TestCase
       @calls = 0
     end
 
-    def select(system:, user:, schema:, model: nil)
+    def select(system:, user:, schema:, image: nil, model: nil)
       @calls += 1
       raise "llm boom" if @boom
 
@@ -29,6 +29,17 @@ class Enrichment::VideoEnricherTest < ActiveSupport::TestCase
     ch = CompetitorChannel.find_or_create_by!(youtube_channel_id: "UCc")
     ch.competitor_videos.create!(youtube_video_id:, title:)
   end
+
+  def video_with_thumb(hash: "bytehash123", url: "https://i.ytimg.com/vi/v1/hq.jpg")
+    video.tap { |v| v.update!(thumbnail_hash: hash, thumbnail_url: url) }
+  end
+
+  THUMB_RAW = {
+    "face_count" => 2, "dominant_expression" => "shock", "has_text" => true,
+    "text_word_count" => 5, "text" => "OLHA ISSO", "dominant_colors" => [ "red", "black" ],
+    "contrast" => "high", "has_arrow" => true, "has_circle_or_highlight" => false,
+    "is_confrontation_framing" => true
+  }.freeze
 
   def enricher(llm) = Enrichment::VideoEnricher.new(llm:)
 
@@ -87,7 +98,51 @@ class Enrichment::VideoEnricherTest < ActiveSupport::TestCase
   test "an unknown kind is a caller bug, not a per-video failure" do
     video
     assert_raises(Enrichment::VideoEnricher::UnknownKind) do
-      enricher(FakeLLM.new(raw: RAW)).call("v1", kind: "thumbnail")
+      enricher(FakeLLM.new(raw: RAW)).call("v1", kind: "bogus")
     end
+  end
+
+  # ------------------------- thumbnail (vision) -------------------------
+
+  test "enriches the thumbnail via vision and stores raw output plus facets" do
+    v = video_with_thumb
+    llm = FakeLLM.new(raw: THUMB_RAW)
+    fetched = nil
+    fetcher = ->(url) { fetched = url; "IMG".b }
+    e = Enrichment::VideoEnricher.new(llm:, thumbnail_fetcher: fetcher)
+
+    assert_equal :enriched, e.call("v1", kind: "thumbnail")
+    assert_equal "https://i.ytimg.com/vi/v1/hq.jpg", fetched # fetched from the stored URL
+
+    row = v.video_attributes.find_by(source: "thumbnail_llm")
+    assert row.state_done?
+    assert_equal "shock", row.attrs["dominant_expression"]  # raw output
+    assert_equal true, row.attrs["thumb_multiple_faces"]    # facet: 2 >= 2
+    assert_equal true, row.attrs["thumb_text_heavy"]        # facet: 5 >= 4
+    assert_equal true, row.attrs["thumb_color_red"]
+    assert_equal false, row.attrs["thumb_color_blue"]
+    assert_equal true, row.attrs["thumb_expression_shock"]
+    assert_equal false, row.attrs["thumb_has_circle"]
+    assert_equal "bytehash123", row.content_hash            # keyed by the byte hash
+  end
+
+  test "the thumbnail is cached by the byte hash (no re-fetch, no LLM call)" do
+    video_with_thumb
+    llm = FakeLLM.new(raw: THUMB_RAW)
+    e = Enrichment::VideoEnricher.new(llm:, thumbnail_fetcher: ->(_url) { "IMG".b })
+
+    e.call("v1", kind: "thumbnail")
+    assert_equal :cached, e.call("v1", kind: "thumbnail")
+    assert_equal 1, llm.calls
+  end
+
+  test "a thumbnail with no byte hash yet is refused with a visible error" do
+    v = video # thumbnail_hash defaults to ""
+    e = Enrichment::VideoEnricher.new(llm: FakeLLM.new(raw: THUMB_RAW), thumbnail_fetcher: ->(_url) { "IMG".b })
+
+    assert_equal :failed, e.call("v1", kind: "thumbnail")
+    row = v.video_attributes.find_by(source: "thumbnail_llm")
+    assert row.state_error?
+    assert_includes row.error, "hashed"
   end
 end

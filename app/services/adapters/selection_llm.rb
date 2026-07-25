@@ -1,3 +1,5 @@
+require "tempfile"
+
 module Adapters
   # The LLM seam for opt-in AI enrichment. A single `select` forces a deterministic
   # structured extraction and returns the parsed attributes Hash — the model fills a
@@ -21,14 +23,15 @@ module Adapters
     end
 
     # Return the structured attributes the model recorded against `schema` (a JSON
-    # Schema Hash). `model` overrides the configured model for this call only.
-    def select(system:, user:, schema:, model: nil)
-      content = build_chat(model || @model)
+    # Schema Hash). `image` attaches raw image bytes for a vision extraction (the
+    # thumbnail kind); `model` overrides the configured model for this call only.
+    def select(system:, user:, schema:, image: nil, model: nil)
+      chat = build_chat(model || @model)
         .with_instructions(system)
         .with_temperature(0)
         .with_schema(schema)
-        .ask(user)
-        .content
+
+      content = ask(chat, user, image).content
 
       unless content.is_a?(Hash)
         raise ExtractionError, "the model did not return a structured object (got #{content.class})"
@@ -37,6 +40,33 @@ module Adapters
     end
 
     private
+
+    # RubyLLM attaches an image from a path/URL/IO — raw bytes travel through a
+    # short-lived temp file whose extension carries the format (sniffed from the
+    # magic bytes) so the provider tags the base64 correctly.
+    def ask(chat, user, image)
+      return chat.ask(user) if image.nil?
+
+      Tempfile.create([ "thumbnail", image_extension(image) ], binmode: true) do |file|
+        file.write(image)
+        file.flush
+        chat.ask(user, with: file.path)
+      end
+    end
+
+    MAGIC = {
+      "\xFF\xD8\xFF".b => ".jpg",
+      "\x89PNG\r\n\x1A\n".b => ".png",
+      "GIF8".b => ".gif"
+    }.freeze
+
+    def image_extension(bytes)
+      data = bytes.b
+      MAGIC.each { |magic, ext| return ext if data.start_with?(magic) }
+      return ".webp" if data[0, 4] == "RIFF".b && data[8, 4] == "WEBP".b
+
+      ".jpg" # YouTube's default; a wrong guess is the provider's error to raise
+    end
 
     def build_chat(model)
       return @chat_factory.call(model) if @chat_factory
