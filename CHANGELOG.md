@@ -18,6 +18,14 @@ compatibility that does not exist.
 
 ### Added
 
+- Opt-in AI thumbnail enrichment (the `thumbnail` kind on `Enrichment::VideoEnricher`):
+  a vision extraction of a thumbnail's visual packaging (faces, expression, overlaid
+  text, dominant colours, arrows/highlights, confrontation framing) stored as raw
+  output plus code-derived boolean facets in `video_attributes`. The LLM seam attaches
+  the fetched image bytes through a short-lived temp file whose format is sniffed from
+  the magic bytes. It is cache-gated by the thumbnail byte hash the snapshot cycle
+  already maintains — so checking the cache costs no network, and a video whose bytes
+  were never hashed is refused with a visible error rather than recharged.
 - Opt-in AI title enrichment (`Enrichment::VideoEnricher` + `Enrichment::EnrichJob`),
   built on a provider-agnostic LLM seam (`Adapters::SelectionLlm` over RubyLLM, Claude
   by default). It never runs on a schedule — only from an explicit action — and forces
