@@ -21,4 +21,25 @@ module CutsHelper
   def clock(seconds)
     Cuts::Manifest.format_timestamp(seconds)
   end
+
+  # A clip's render state → its tag. `clip` may be nil (not rendered yet).
+  CLIP_STATE_TAG = {
+    nil => [ "Not rendered", "bg-card2 text-ink-3 border-line-strong" ],
+    "queued" => [ "Queued", "bg-card2 text-ink-2 border-line-strong" ],
+    "downloading_section" => [ "Downloading", "bg-accent-bg text-accent border-accent-line" ],
+    "aligning" => [ "Aligning", "bg-accent-bg text-accent border-accent-line" ],
+    "cutting" => [ "Cutting", "bg-accent-bg text-accent border-accent-line" ],
+    "done" => [ "Rendered", "bg-ok-bg text-ok border-ok-line" ],
+    "error" => [ "Error", "bg-err-bg text-err border-err-line" ]
+  }.freeze
+
+  def clip_state_tag(clip)
+    label, klass = CLIP_STATE_TAG.fetch(clip&.state, CLIP_STATE_TAG[nil])
+    tag.span(label, class: "tag #{klass}")
+  end
+
+  # True while any of the cut's clips is still working (drives the render polling).
+  def rendering?(cut)
+    cut.status_rendering? || cut.cut_items.any? { |i| i.clip && %w[queued downloading_section aligning cutting].include?(i.clip.state) }
+  end
 end

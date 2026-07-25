@@ -1,0 +1,31 @@
+<%#
+  One cut item: its position, title (topic title or "Manual range"), time range and
+  the clip's render state, plus reorder (up/down), and remove. `count` is the number
+  of items, so the last item hides its "down" control.
+%>
+<div class="card flex items-center gap-3">
+  <div class="font-mono text-ink-3 text-[12px] w-6 text-right"><%= item.position + 1 %></div>
+
+  <div class="flex-1 min-w-0">
+    <div class="text-ink truncate"><%= item.topic&.title || "Manual range" %></div>
+    <div class="m text-ink-3 font-mono"><%= clock(item.start_s) %>–<%= clock(item.end_s) %></div>
+    <% if item.clip&.state_error? && item.clip.error.present? %>
+      <div class="m text-err truncate mt-0.5" title="<%= item.clip.error %>"><%= item.clip.error %></div>
+    <% end %>
+  </div>
+
+  <%= clip_state_tag(item.clip) %>
+
+  <div class="flex items-center gap-1 shrink-0">
+    <% if item.position.positive? %>
+      <%= button_to "↑", project_move_cut_item_path(@project, @source_video, item),
+            method: :post, params: { direction: "up" }, class: "btn btn-xs", form: { title: "Move up" } %>
+    <% end %>
+    <% if item.position < count - 1 %>
+      <%= button_to "↓", project_move_cut_item_path(@project, @source_video, item),
+            method: :post, params: { direction: "down" }, class: "btn btn-xs", form: { title: "Move down" } %>
+    <% end %>
+    <%= button_to "✕", project_cut_item_path(@project, @source_video, item),
+          method: :delete, class: "btn btn-xs", form: { title: "Remove", data: { turbo_confirm: "Remove this item and its clip?" } } %>
+  </div>
+</div>

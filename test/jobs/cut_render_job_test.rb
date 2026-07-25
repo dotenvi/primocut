@@ -25,4 +25,14 @@ class CutRenderJobTest < ActiveSupport::TestCase
     assert_equal [ 1, 2 ], service.calls.first[:item_ids]
     assert service.calls.first[:regenerate]
   end
+
+  test "settles the cut back to rendered when it owned the rendering state" do
+    project = Project.create!(name: "Niche")
+    video = project.source_videos.create!(youtube_id: "abcdefghijk", url: "https://y/1")
+    cut = video.cuts.create!(status: "rendering")
+
+    CutRenderJob.perform_now(cut.id, service: FakeService.new)
+
+    assert cut.reload.status_rendered?
+  end
 end

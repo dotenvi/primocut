@@ -14,5 +14,11 @@
 <% if flash[:notice] %>
   <div class="card mb-4 bg-accent-bg border-accent-line text-accent text-[13px]"><%= flash[:notice] %></div>
 <% end %>
+<% if flash[:alert] %>
+  <div class="card mb-4 bg-err-bg border-err-line text-err text-[13px]"><%= flash[:alert] %></div>
+<% end %>
 
-<%= render "topics" %>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+  <%= render "topics" %>
+  <%= render "cut" %>
+</div>

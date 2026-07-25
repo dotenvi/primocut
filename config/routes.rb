@@ -25,6 +25,13 @@ Rails.application.routes.draw do
     get  "sources/:source_video_id/topics", to: "cuts#topics", as: :topics # live-progress frame
     post "sources/:source_video_id/topics/analyze", to: "cuts#analyze_topics", as: :analyze_topics
     post "sources/:source_video_id/topics/:topic_id/triage", to: "cuts#triage", as: :topic_triage
+
+    # The cut composition: its ordered items and the render.
+    get    "sources/:source_video_id/cut", to: "cuts#cut", as: :cut # live-progress frame
+    post   "sources/:source_video_id/cut/items", to: "cuts#add_item", as: :cut_items
+    delete "sources/:source_video_id/cut/items/:id", to: "cuts#remove_item", as: :cut_item
+    post   "sources/:source_video_id/cut/items/:id/move", to: "cuts#move_item", as: :move_cut_item
+    post   "sources/:source_video_id/cut/render", to: "cuts#render_cut", as: :render_cut
     get "niche",    to: "niche#show",     as: :niche
     get "niche/channels/:channel_id", to: "channels#show", as: :niche_channel
     get "niche/channels/:channel_id/videos/:video_id", to: "videos#show", as: :niche_channel_video

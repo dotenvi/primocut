@@ -8,5 +8,9 @@ class CutRenderJob < ApplicationJob
   def perform(cut_id, item_ids: nil, regenerate: false, fast_copy: false, service: Cuts::Render.new)
     cut = Cut.find(cut_id)
     service.call(cut, item_ids:, regenerate:, fast_copy:)
+  ensure
+    # The Cut Room flips the cut to "rendering" before enqueuing so its frame polls;
+    # settle it back when the pass finishes (only if we still own that state).
+    cut&.update!(status: "rendered") if cut&.status == "rendering"
   end
 end

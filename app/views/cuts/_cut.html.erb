@@ -1,0 +1,42 @@
+<%#
+  The cut composition, wrapped in a self-refreshing turbo-frame. While the cut is
+  rendering (or any clip is still working) the frame carries a `src` and the poll
+  controller, so the clips' states update live; when the render settles it drops
+  both and polling stops. Mirrors the topics frame and the source-videos row.
+%>
+<% items = @cut.cut_items.order(:position).includes(:clip, :topic) %>
+<% working = rendering?(@cut) %>
+<%= turbo_frame_tag "cut_composition",
+      src: (working ? project_cut_path(@project, @source_video) : nil),
+      data: (working ? { controller: "poll" } : {}) do %>
+  <section>
+    <div class="flex items-center justify-between gap-3 mb-3">
+      <div class="eyebrow"><%= @cut.name %> <span class="text-ink-3">· <%= items.size %> item(s)</span></div>
+      <% if items.any? %>
+        <%= button_to working ? "Rendering…" : "Render clips",
+              project_render_cut_path(@project, @source_video),
+              method: :post, disabled: working, class: "btn btn-pri btn-xs" %>
+      <% end %>
+    </div>
+
+    <% if items.any? %>
+      <div class="flex flex-col gap-2 overflow-y-auto mb-3" style="max-height: calc(100vh - 19rem)">
+        <%= render partial: "cut_item", collection: items, as: :item, locals: { count: items.size } %>
+      </div>
+    <% else %>
+      <p class="m text-ink-3 mb-3">Empty cut. Add topics from the left, or a manual range below.</p>
+    <% end %>
+
+    <%= form_with url: project_cut_items_path(@project, @source_video), method: :post, class: "flex items-end gap-2" do |f| %>
+      <div>
+        <label class="eyebrow block mb-1">Start (s)</label>
+        <%= f.number_field :start_s, step: "any", min: "0", class: "w-24", placeholder: "0" %>
+      </div>
+      <div>
+        <label class="eyebrow block mb-1">End (s)</label>
+        <%= f.number_field :end_s, step: "any", min: "0", class: "w-24", placeholder: "0" %>
+      </div>
+      <%= f.submit "Add range", class: "btn btn-xs" %>
+    <% end %>
+  </section>
+<% end %>

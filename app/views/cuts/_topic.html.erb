@@ -31,6 +31,12 @@
         <%= button_to "Open", project_topic_triage_path(@project, @source_video, topic),
               method: :post, params: { state: "open" }, class: "btn btn-xs" %>
       <% end %>
+      <% if @cut_topic_ids.include?(topic.id) %>
+        <span class="btn btn-xs opacity-50 pointer-events-none">Added</span>
+      <% else %>
+        <%= button_to "Add →", project_cut_items_path(@project, @source_video),
+              method: :post, params: { topic_id: topic.id }, class: "btn btn-ai btn-xs" %>
+      <% end %>
     </div>
   </div>
 </div>

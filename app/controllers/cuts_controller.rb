@@ -1,9 +1,10 @@
 # The Cut Room, per source video — the working screen where a processed video's
 # topics are triaged and composed into cuts. Scoped to @project (the leakage guard:
-# a source video from another project is a 404). Built section by section; this
-# first section is topics + triage.
+# a source video from another project is a 404). Built section by section: topics +
+# triage, then composing the active cut and rendering its clips.
 class CutsController < ProjectScopedController
   before_action :set_source_video
+  before_action :set_cut, except: %i[analyze_topics triage]
 
   def show
     load_topics
@@ -16,19 +17,63 @@ class CutsController < ProjectScopedController
     render partial: "topics"
   end
 
+  # The cut frame alone (no layout), re-fetched while the render is in flight so the
+  # clips' states update live.
+  def cut
+    render partial: "cut"
+  end
+
   # Regenerate the source video's topics with the LLM (background). The video is
   # flipped to "analyzing" so the frame polls until the pass restores it to "done".
   def analyze_topics
     @source_video.update!(status: "analyzing")
     AnalyzeTopicsJob.perform_later(@source_video.id)
-    redirect_to project_cut_room_path(@project, @source_video), notice: "Analyzing the transcript for topics…"
+    redirect_to cut_room_path, notice: "Analyzing the transcript for topics…"
   end
 
   # Record the user's opinion about a topic: "maybe", "discarded" or "open" (clear).
   def triage
     topic = @source_video.topics.find(params[:topic_id])
     Cuts::Triage.set(@source_video, topic, params[:state])
-    redirect_to project_cut_room_path(@project, @source_video)
+    redirect_to cut_room_path
+  end
+
+  # Append a topic (snapshotting its range) or a manual range to the active cut.
+  def add_item
+    position = (@cut.cut_items.maximum(:position) || -1) + 1
+    if params[:topic_id].present?
+      topic = @source_video.topics.find(params[:topic_id])
+      @cut.cut_items.create!(topic:, position:, start_s: topic.start_s, end_s: topic.end_s)
+    else
+      add_manual_range(position)
+    end
+    redirect_to cut_room_path
+  rescue ArgumentError, TypeError
+    redirect_to cut_room_path, alert: "Enter a valid start and end (end after start)."
+  end
+
+  # Remove an item from the composition (its clip goes with it), then re-pack the
+  # remaining positions so they stay contiguous.
+  def remove_item
+    @cut.cut_items.find(params[:id]).destroy!
+    repack_positions
+    redirect_to cut_room_path
+  end
+
+  # Move an item one slot up or down by swapping positions with its neighbour.
+  def move_item
+    item = @cut.cut_items.find(params[:id])
+    neighbour = neighbour_of(item, params[:direction])
+    swap_positions(item, neighbour) if neighbour
+    redirect_to cut_room_path
+  end
+
+  # Render the cut's clips (background). The cut is flipped to "rendering" so the
+  # frame polls until the pass restores it to "rendered".
+  def render_cut
+    @cut.update!(status: "rendering")
+    CutRenderJob.perform_later(@cut.id)
+    redirect_to cut_room_path, notice: "Rendering the clips…"
   end
 
   private
@@ -37,8 +82,46 @@ class CutsController < ProjectScopedController
     @source_video = @project.source_videos.find(params[:source_video_id])
   end
 
+  # The active cut: a source video gets a default "Cut 1" lazily.
+  def set_cut
+    @cut = @source_video.cuts.order(:created_at).first || @source_video.cuts.create!
+  end
+
   def load_topics
     @topics = @source_video.topics.ordered
     @triage = @source_video.topic_triages.index_by(&:topic_id)
+    @cut_topic_ids = @cut.cut_items.where.not(topic_id: nil).pluck(:topic_id).to_set
+  end
+
+  def add_manual_range(position)
+    start_s = Float(params[:start_s])
+    end_s = Float(params[:end_s])
+    raise ArgumentError unless end_s > start_s
+
+    @cut.cut_items.create!(position:, start_s:, end_s:)
+  end
+
+  def repack_positions
+    @cut.cut_items.order(:position).each_with_index do |item, i|
+      item.update_column(:position, i) unless item.position == i
+    end
+  end
+
+  def neighbour_of(item, direction)
+    if direction == "up"
+      @cut.cut_items.where(position: ...item.position).order(position: :desc).first
+    else
+      @cut.cut_items.where("position > ?", item.position).order(:position).first
+    end
+  end
+
+  def swap_positions(a, b)
+    a_pos = a.position
+    a.update!(position: b.position)
+    b.update!(position: a_pos)
+  end
+
+  def cut_room_path
+    project_cut_room_path(@project, @source_video)
   end
 end
