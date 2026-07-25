@@ -16,6 +16,17 @@ compatibility that does not exist.
 
 ## [Unreleased]
 
+### Added
+
+- The data model the Cut Room is built on: a source video's transcript is broken into
+  `Topic` segments, each triaged per source video (`TopicTriage` — keep as "maybe" or
+  "discard"); the topics and manual ranges the user keeps are composed, in order, into
+  named `Cut`s of `CutItem`s. Every item renders to one `Clip` (an MP4 deliverable, with
+  a pay-once cache key over its range, padding and encode profile), a whole cut exports
+  to one bundle (`Export`), and each item can carry opt-in AI packaging (`CutPackaging` —
+  titles, thumbnail briefs, frame ranking) plus a per-source-video `AudienceMatch`. These
+  are the tables the rendering, export and packaging steps are assembled on next.
+
 ## [0.3.0] - 2026-07-25
 
 ### Added
