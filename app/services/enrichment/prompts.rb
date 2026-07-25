@@ -1,9 +1,63 @@
 module Enrichment
   # System prompts + JSON schemas for the opt-in enrichment kinds. Written in plain
   # JSON Schema (fed straight to `with_schema`); ported from the PoC
-  # `analysis/enrichment_prompts.py`. `title` and `thumbnail` (vision) live here;
-  # the `comments` synthesis arrives in a later slice.
+  # `analysis/enrichment_prompts.py`. `title`, `thumbnail` (vision) and the
+  # `comments` synthesis.
   module Prompts
+    COMMENT_SYNTHESIS_SYSTEM = <<~SYS.strip.freeze
+      You read the top comments of a YouTube video for a clip editor studying the demand \
+      in a niche. Report only what the comments actually say. A request counts only when a \
+      comment explicitly asks for it — never infer a wish from enthusiasm, and never turn a \
+      compliment into a request. The comments are usually in PT-BR: keep themes and requested \
+      names in the comments' own language. Quote nothing: to point at a comment, give its \
+      index [i]. If there are no requests, return an empty list rather than a plausible-looking one.
+    SYS
+
+    COMMENT_SYNTHESIS_SCHEMA = {
+      "type" => "object",
+      "additionalProperties" => false,
+      "properties" => {
+        "themes" => {
+          "type" => "array",
+          "maxItems" => 8,
+          "description" => "Recurring subjects in the comments, most discussed first.",
+          "items" => {
+            "type" => "object",
+            "additionalProperties" => false,
+            "properties" => {
+              "theme" => { "type" => "string", "description" => "The recurring subject, in the comments' own language." },
+              "mentions" => { "type" => "integer", "description" => "How many of the supplied comments express it." },
+              "example_index" => { "type" => "integer", "description" => "The index [i] of one supplied comment that expresses it. Never write the comment's text." }
+            },
+            "required" => %w[theme mentions example_index]
+          }
+        },
+        "requests" => {
+          "type" => "array",
+          "maxItems" => 10,
+          "description" => "Things the audience explicitly asks for. Only what a comment actually asks for — never an inferred wish.",
+          "items" => {
+            "type" => "object",
+            "additionalProperties" => false,
+            "properties" => {
+              "type" => {
+                "type" => "string",
+                "enum" => %w[guest topic format other],
+                "description" => "guest = a person to bring on, topic = a subject to cover, format = how to make it (length, editing, series), other = anything else asked for."
+              },
+              "value" => { "type" => "string", "description" => "The thing asked for, named as the audience names it." },
+              "mentions" => { "type" => "integer", "description" => "How many of the supplied comments ask for it." },
+              "example_index" => { "type" => "integer", "description" => "The index [i] of one supplied comment asking for it. Never write the comment's text." }
+            },
+            "required" => %w[type value mentions example_index]
+          }
+        },
+        "sentiment" => { "type" => "string", "enum" => %w[positive mixed negative neutral], "description" => "The overall reaction across the supplied comments." },
+        "sentiment_note" => { "type" => "string", "description" => "One short sentence on the overall reaction." }
+      },
+      "required" => %w[themes requests sentiment sentiment_note]
+    }.freeze
+
     THUMBNAIL_SYSTEM = <<~SYS.strip.freeze
       You analyse YouTube thumbnails for a clip editor studying what works in a niche. \
       Report only what is actually visible in the image — never guess at the video's \

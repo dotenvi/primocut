@@ -145,4 +145,71 @@ class Enrichment::VideoEnricherTest < ActiveSupport::TestCase
     assert row.state_error?
     assert_includes row.error, "hashed"
   end
+
+  # ------------------------- comments (synthesis) -------------------------
+
+  SYNTH_RAW = {
+    "themes" => [ { "theme" => "honestidade", "mentions" => 12, "example_index" => 0 } ],
+    "requests" => [ { "type" => "guest", "value" => "Fulano de Tal", "mentions" => 9, "example_index" => 1 } ],
+    "sentiment" => "positive", "sentiment_note" => "Loved it."
+  }.freeze
+
+  def video_with_comments
+    v = video
+    v.video_comments.create!(comment_id: "c0", text: "Melhor entrevista do ano", like_count: 500, author: "u0", fetched_at: Time.current)
+    v.video_comments.create!(comment_id: "c1", text: "Traz o Fulano de Tal", like_count: 300, author: "u1", fetched_at: Time.current)
+    v
+  end
+
+  test "synthesises comments into video_enrichments with quotes resolved from the store" do
+    v = video_with_comments
+
+    assert_equal :enriched, enricher(FakeLLM.new(raw: SYNTH_RAW)).call("v1", kind: "comments")
+
+    row = v.video_enrichments.find_by(kind: Enrichment::Comments::KIND)
+    assert row.state_done?
+    assert_equal "positive", row.payload["sentiment"]
+    assert_equal "c0", row.payload["themes"][0]["example"]["comment_id"]    # resolved from index 0
+    assert_equal "c1", row.payload["requests"][0]["example"]["comment_id"]  # index 1
+    assert_equal "fulano de tal", row.payload["requests"][0]["value_key"]
+    assert_equal 2, row.payload["comments_analysed"]
+    assert row.content_hash.present?
+  end
+
+  test "the synthesis is cached by the comment-set hash" do
+    video_with_comments
+    llm = FakeLLM.new(raw: SYNTH_RAW)
+    e = enricher(llm)
+
+    e.call("v1", kind: "comments")
+    assert_equal :cached, e.call("v1", kind: "comments")
+    assert_equal 1, llm.calls
+  end
+
+  test "a video with no comments is refused with a visible reason" do
+    v = video # no comments collected
+
+    assert_equal :failed, enricher(FakeLLM.new(raw: SYNTH_RAW)).call("v1", kind: "comments")
+
+    row = v.video_enrichments.find_by(kind: Enrichment::Comments::KIND)
+    assert row.state_error?
+    assert_includes row.error, "collected"
+  end
+
+  test "regenerate re-collects the comments before synthesising" do
+    video_with_comments
+    recollected = nil
+    recollector = ->(video) { recollected = video.youtube_video_id }
+    e = Enrichment::VideoEnricher.new(llm: FakeLLM.new(raw: SYNTH_RAW), comment_recollector: recollector)
+
+    assert_equal :enriched, e.call("v1", kind: "comments", regenerate: true)
+    assert_equal "v1", recollected
+  end
+
+  test "regenerate is rejected for a packaging kind (a caller bug)" do
+    video
+    assert_raises(Enrichment::VideoEnricher::RegenerateNotAllowed) do
+      enricher(FakeLLM.new(raw: RAW)).call("v1", kind: "title", regenerate: true)
+    end
+  end
 end

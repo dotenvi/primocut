@@ -7,9 +7,9 @@ module Enrichment
   class EnrichJob < ApplicationJob
     queue_as :default
 
-    def perform(youtube_video_ids, kind = "title")
+    def perform(youtube_video_ids, kind = "title", regenerate: false)
       enricher = VideoEnricher.new
-      Array(youtube_video_ids).each { |youtube_video_id| enricher.call(youtube_video_id, kind:) }
+      Array(youtube_video_ids).each { |youtube_video_id| enricher.call(youtube_video_id, kind:, regenerate:) }
     end
   end
 end
