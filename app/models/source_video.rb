@@ -3,6 +3,10 @@
 class SourceVideo < ApplicationRecord
   belongs_to :project
 
+  has_many :pipeline_jobs, dependent: :destroy
+  has_one :transcript, dependent: :destroy
+  has_one :chat_signal, dependent: :destroy
+
   # Statuses in which the video is actively being processed — not directly
   # deletable, and the pipeline treats them as "in flight". Mirrors the PoC
   # `models.py::ACTIVE_STATUSES`.

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_25_040001) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_25_040004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -23,6 +23,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_25_040001) do
     t.integer "video_count", default: 0, null: false
     t.index ["competitor_channel_id", "captured_at"], name: "idx_on_competitor_channel_id_captured_at_c33c474561"
     t.index ["competitor_channel_id"], name: "index_channel_snapshots_on_competitor_channel_id"
+  end
+
+  create_table "chat_signals", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.jsonb "peaks", default: [], null: false
+    t.jsonb "per_minute", default: [], null: false
+    t.bigint "source_video_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["source_video_id"], name: "index_chat_signals_on_source_video_id", unique: true
   end
 
   create_table "competitor_channels", force: :cascade do |t|
@@ -101,6 +110,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_25_040001) do
     t.index ["competitor_video_id"], name: "index_packaging_changes_on_competitor_video_id"
   end
 
+  create_table "pipeline_jobs", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.text "error", default: "", null: false
+    t.integer "progress", default: 0, null: false
+    t.bigint "source_video_id", null: false
+    t.string "stage", default: "", null: false
+    t.jsonb "stage_history", default: [], null: false
+    t.string "status", default: "queued", null: false
+    t.datetime "updated_at", null: false
+    t.jsonb "warnings", default: [], null: false
+    t.index ["source_video_id"], name: "index_pipeline_jobs_on_source_video_id"
+  end
+
   create_table "project_channels", force: :cascade do |t|
     t.bigint "competitor_channel_id", null: false
     t.datetime "created_at", null: false
@@ -132,6 +154,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_25_040001) do
     t.string "youtube_id", null: false
     t.index ["project_id"], name: "index_source_videos_on_project_id"
     t.index ["youtube_id"], name: "index_source_videos_on_youtube_id", unique: true
+  end
+
+  create_table "transcripts", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "language", default: "", null: false
+    t.string "model", default: "", null: false
+    t.jsonb "segments", default: [], null: false
+    t.bigint "source_video_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["source_video_id"], name: "index_transcripts_on_source_video_id", unique: true
   end
 
   create_table "video_attributes", force: :cascade do |t|
@@ -184,12 +216,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_25_040001) do
   end
 
   add_foreign_key "channel_snapshots", "competitor_channels", on_delete: :cascade
+  add_foreign_key "chat_signals", "source_videos", on_delete: :cascade
   add_foreign_key "competitor_videos", "competitor_channels", on_delete: :cascade
   add_foreign_key "own_channels", "projects", on_delete: :cascade
   add_foreign_key "packaging_changes", "competitor_videos", on_delete: :cascade
+  add_foreign_key "pipeline_jobs", "source_videos", on_delete: :cascade
   add_foreign_key "project_channels", "competitor_channels", on_delete: :cascade
   add_foreign_key "project_channels", "projects", on_delete: :cascade
   add_foreign_key "source_videos", "projects", on_delete: :cascade
+  add_foreign_key "transcripts", "source_videos", on_delete: :cascade
   add_foreign_key "video_attributes", "competitor_videos", on_delete: :cascade
   add_foreign_key "video_comments", "competitor_videos", on_delete: :cascade
   add_foreign_key "video_enrichments", "competitor_videos", on_delete: :cascade
