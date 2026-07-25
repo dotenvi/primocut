@@ -16,6 +16,23 @@ compatibility that does not exist.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-25
+
+### Added
+
+- `bin/primocut`, a command-line tool for driving the app from the terminal
+  (testing workflows, not product flows). It boots the full app and exposes four
+  commands: `pipeline URL --project N` runs the source-video pipeline inline
+  (metadata → audio → transcription → chat), reusing the cached transcript on a
+  re-run; `snapshot` runs one competitor snapshot cycle without the scheduler;
+  `metrics` prints a niche, channel or video dashboard as JSON (for numeric parity
+  checks); and `export --cut N` packages a cut into a deliverable bundle.
+- `rake primocut:doctor`, an environment check that validates the GPU/CUDA (WSL2),
+  FFmpeg (and the optional NVENC encoder), yt-dlp, the Python transcription sidecar,
+  the LLM key, the YouTube Data API key and the database. It prints a colour-coded
+  table and, for every failure, the command that fixes it, exiting non-zero when the
+  environment is not ready.
+
 ## [0.4.0] - 2026-07-25
 
 ### Added
@@ -233,7 +250,8 @@ compatibility that does not exist.
   detail with the channel-spread strip, and the Radar feed and Activity log — all
   drilling down through project → channel → video with per-project leakage guards.
 
-[unreleased]: https://github.com/dotenvi/primocut/compare/v0.4.0...HEAD
+[unreleased]: https://github.com/dotenvi/primocut/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/dotenvi/primocut/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/dotenvi/primocut/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/dotenvi/primocut/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/dotenvi/primocut/compare/v0.1.0...v0.2.0
