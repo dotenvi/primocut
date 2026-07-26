@@ -1,0 +1,27 @@
+<%#
+  The "channel spread" strip: a tiny histogram of the channel-format window's view
+  counts, with the bar holding THIS video highlighted. Same component in the Radar
+  cards and on the video detail — the payload is identical, only the marked value
+  and the size differ. Ports the PoC `components/DistributionStrip.svelte`.
+
+  Locals: buckets, edges, views (marked value, may be nil), height (px), label,
+  label_below (the Radar card captions under the bars, the detail above them).
+%>
+<% height ||= 24 %>
+<% label_below = true if local_assigns[:label_below].nil? %>
+<% bar_class = local_assigns[:bar_class] || "w-0.5" %>
+<% if buckets.present? %>
+  <% max_bucket = [ 1, *buckets ].max %>
+  <% mark = spread_bucket_index(views, edges) %>
+  <div class="flex flex-col <%= label_below ? "items-end" : "items-start" %> gap-1 shrink-0">
+    <% unless label_below %><div class="lbl text-[9px]"><%= label %></div><% end %>
+    <div class="flex items-end gap-px" style="height:<%= height %>px"
+         role="img" aria-label="<%= label %> — <%= buckets.size %> bars">
+      <% buckets.each_with_index do |count, i| %>
+        <i class="block <%= bar_class %> rounded-t-[1px] <%= i == mark ? "bg-heat-99" : "bg-[#2B323A]" %>"
+           style="height:<%= [ (count.to_f / max_bucket * height).round, i == mark ? 3 : 1 ].max %>px"></i>
+      <% end %>
+    </div>
+    <% if label_below %><span class="font-mono text-[9px] text-ink-3 tracking-wider"><%= label %></span><% end %>
+  </div>
+<% end %>

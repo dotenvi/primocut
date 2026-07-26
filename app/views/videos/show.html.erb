@@ -28,20 +28,11 @@
         <% end %>
       </div>
 
-      <% buckets = @distribution[:buckets] %>
-      <% if buckets.any? %>
-        <% max_bucket = [ 1, *buckets ].max %>
-        <% mark = spread_bucket_index(latest_views, @distribution[:bucket_edges]) %>
-        <div class="pt-6">
-          <div class="lbl mb-1 text-[9px]">LAST <%= @distribution[:count] %> · <%= v[:is_short] ? "SHORT" : "LONG" %></div>
-          <div class="flex items-end gap-px h-[52px]" title="Channel spread; this video marked">
-            <% buckets.each_with_index do |c, i| %>
-              <div class="w-1 rounded-t-[1px] <%= i == mark ? 'bg-heat-99' : 'bg-[#3f4145]' %>"
-                   style="height:<%= c.zero? ? 0 : [ (c.to_f / max_bucket * 100).round, 6 ].max %>%"></div>
-            <% end %>
-          </div>
-        </div>
-      <% end %>
+      <div class="pt-6">
+        <%= render "shared/spread_strip", buckets: @distribution[:buckets], edges: @distribution[:bucket_edges],
+              views: latest_views, height: 52, label_below: false, bar_class: "w-1",
+              label: "LAST #{@distribution[:count]} · #{v[:is_short] ? 'SHORT' : 'LONG'}" %>
+      </div>
     </div>
   </div>
 
