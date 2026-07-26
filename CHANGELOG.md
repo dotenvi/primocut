@@ -30,6 +30,11 @@ compatibility that does not exist.
   screen, at the feed page, filter and format you left it on; reached any other
   way, or directly, the link still walks up the hierarchy to the channel.
 
+- The project Settings screen replaces its placeholder. It lists the channels you
+  publish to in this niche — add one, remove one, see its role — and shows the
+  outlier band cutoffs in the basis they are measured in (`p90`/`p97`/`p99`, or
+  multiples of the median), read-only and labelled as the global setting they are.
+
 - The Niche screen's Patterns tab runs the opt-in AI analysis. Two buttons —
   `Analyze thumbnails`, `Analyze titles` — each priced before the click
   (`· 77 new`, or `· all cached`), because the pass costs an LLM call per video.
