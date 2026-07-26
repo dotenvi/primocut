@@ -1,5 +1,11 @@
 <% content_for :title, "Radar — Primocut" %>
 <% pages = { project: @radar.project, new_page: @radar.unseen.current, seen_page: @radar.seen.current } %>
+<%# Travels on every card link so the video screen can offer the way back to this
+    exact feed position. `rf` is a flag — the filter's project is the one the card
+    already links through, so no id needs to be trusted on the way back. %>
+<% origin = { from: "radar", rf: (1 if @radar.project),
+              np: (@radar.unseen.current if @radar.unseen.current > 1),
+              sp: (@radar.seen.current if @radar.seen.current > 1) }.compact %>
 
 <div class="flex items-end justify-between gap-3 mb-5">
   <div>
@@ -54,7 +60,7 @@
       <%= render "pager", page: @radar.unseen, page_key: :new_page, pages: pages %>
     </div>
     <%= render partial: "event", collection: @radar.unseen.rows, as: :event,
-          locals: { spread: @radar.spread, project: @radar.project } %>
+          locals: { spread: @radar.spread, project: @radar.project, origin: origin } %>
   <% end %>
 
   <% if @radar.seen.any? %>
@@ -63,6 +69,6 @@
       <%= render "pager", page: @radar.seen, page_key: :seen_page, pages: pages %>
     </div>
     <%= render partial: "seen_event", collection: @radar.seen.rows, as: :event,
-          locals: { project: @radar.project } %>
+          locals: { project: @radar.project, origin: origin } %>
   <% end %>
 <% end %>

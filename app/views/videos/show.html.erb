@@ -3,8 +3,9 @@
 <% latest_views = @report[:snapshots].last&.dig(:views) %>
 <% content_for :title, "#{v[:title].presence || v[:youtube_video_id]} — #{@project.name}" %>
 
-<%= link_to "‹ Niche / channel", project_niche_channel_path(@project, @channel.youtube_channel_id),
-      class: "eyebrow cursor-pointer hover:text-ink-2 mb-2 block no-underline" %>
+<%# One link: back to where this was opened from, or up the hierarchy if unknown. %>
+<%= back_link(@project, to: project_niche_channel_path(@project, @channel.youtube_channel_id),
+      label: "‹ Niche / channel") %>
 
 <h1 class="mb-5 max-w-[820px]"><%= v[:title].presence || v[:youtube_video_id] %></h1>
 

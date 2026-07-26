@@ -3,13 +3,14 @@
   project badges of the channel that published it, the title, the metric line and
   the channel-spread strip. The whole card opens the video inside a project that
   tracks its channel; an event whose subject is gone renders as a plain card.
-  Locals: event (a Radar::Row), spread, project (the active filter, may be nil).
+  Locals: event (a Radar::Row), spread, project (the active filter, may be nil),
+  origin (the params that let the video screen offer the way back to this feed).
 %>
 <% badge = event_tag(event) %>
 <% distribution = spread[[ event.channel&.id, event.video_format ]] %>
 <% target = event.linkable?(project) &&
      project_niche_channel_video_path(event.project_for(project),
-       event.channel.youtube_channel_id, event.video.youtube_video_id) %>
+       event.channel.youtube_channel_id, event.video.youtube_video_id, **origin) %>
 
 <%= content_tag(target ? :a : :div, href: target || nil,
       class: class_names("ev", "no-underline text-ink" => target, "cursor-default" => !target)) do %>
