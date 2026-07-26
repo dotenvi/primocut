@@ -4,10 +4,11 @@ Canonical agent instructions for PRIMOCUT (Rails). Every line here is loaded int
 context each request — keep it dense and current. On any contradiction with the
 code, the **code wins**; then fix the docs.
 
-> **Status: Phase 1, greenfield.** This repository is the Rails rewrite of the
-> Python PoC that lives in `../primocut-poc` (GitHub: `dotenvi/primocut-poc`).
-> Sections marked **(target)** describe the agreed design, not code that exists
-> yet — do not treat them as descriptions of the current tree.
+> **Status: the migration is complete** (released at `0.5.0`). This repository is
+> the Rails rewrite of the Python PoC that lives in `../primocut-poc` (GitHub:
+> `dotenvi/primocut-poc`); the PoC is kept as the executable specification, not as
+> something to delete. Work now is refinement of the ported screens, so every
+> section below describes code that exists — read it, do not assume it.
 
 ## What this is
 
@@ -26,13 +27,13 @@ competitor-channel modeling and assisted cutting/packaging of clips.
 
 1. **One pipeline core.** Stage order (metadata → audio → transcription → chat →
    analysis) lives in exactly **one** place. In the PoC that is
-   `pipeline.py::run_stages`; here it becomes `Pipeline::Runner` **(target)**,
+   `pipeline.py::run_stages`; here it is `Pipeline::Runner`,
    called by both the job and the CLI, differing only by an injected reporter.
    **Never duplicate stage logic.**
 
 2. **The golden rule of analysis.** The LLM returns segment **indices**, **never**
    timestamps. Index→time resolution clamps to real segments (`resolve_span` in the
-   PoC → `Analysis::SpanResolver` **(target)**), and that clamp is the **final
+   PoC → `Cuts::SpanResolver`), and that clamp is the **final
    authority** — not the provider's schema. Forced tool use is the first line of
    defense (verified working, `docs/RAILS_MIGRATION.md` §5.1), the clamp is the one
    that cannot fail. No prompt or parser may trust model-emitted times.
@@ -50,7 +51,7 @@ a thin **Python sidecar** (~584 LOC) retained only for transcription
 - The sidecar owns its own CUDA environment (`_preload_cuda_libs`); Rails must never
   need CUDA env vars. See `docs/RAILS_MIGRATION.md` §5.2.
 
-## Architecture (target)
+## Architecture
 
 ```
 app/
@@ -62,8 +63,16 @@ app/
   views/        ERB + Hotwire. Everything is a partial.
 ```
 
-Service namespaces mirror the PoC's domains: `Pipeline::`, `Competitors::`,
-`Metrics::`, `Cuts::`, `Enrichment::`.
+Service namespaces mirror the PoC's domains — `Pipeline::`, `Competitors::`,
+`Metrics::`, `Cuts::` — plus one per screen for read-side composition:
+`Radar::`, `Activity::`, `Niche::`, `Navigation::`, and `Events::` for what they
+share. A screen object is what keeps a controller at `params → service → render`
+when the screen needs more than one read.
+
+The opt-in AI pass over a competitor's video is **analysis**
+(`Competitors::VideoAnalysis`), never "enrichment" — that word names only the
+`video_enrichments` table it writes to, and the pass runs on competitor videos
+alone, which is why it lives under `Competitors::`.
 
 ## Design conventions
 
