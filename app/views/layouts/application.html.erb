@@ -32,7 +32,7 @@
     <div class="grid grid-cols-[236px_1fr] min-h-screen max-[960px]:grid-cols-1">
       <%= render "layouts/sidebar" %>
 
-      <main class="px-7 pt-6 pb-16 w-full max-w-[1160px]">
+      <main class="px-7 pt-6 pb-16 w-full <%= content_width %>">
         <%= yield %>
       </main>
     </div>
