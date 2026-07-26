@@ -65,6 +65,13 @@ compatibility that does not exist.
 
 ### Changed
 
+- The Python sidecar is `sidecar/transcription_engine.py`, and its CLI answers to
+  `transcription-engine`. It was `primocut_engine.py` / `primocut-engine`, which
+  named the project rather than the file and promised an engine far broader than
+  the one thing it does. The name now mirrors its only caller,
+  `Adapters::TranscriptionEngine` — one seam, one name on both sides. The
+  `ENGINE_CMD` variable is unchanged.
+
 - The opt-in AI pass over a competitor's video is called **analysis**, not
   "enrichment", throughout the code: `Enrichment::VideoEnricher` →
   `Competitors::VideoAnalysis`, `Enrichment::Comments` →

@@ -107,7 +107,7 @@ module Diagnostics
         fail(name, detail, fix: "Check the sidecar venv (faster-whisper installed, CUDA libs loadable).")
       end
     rescue Adapters::TranscriptionEngine::TranscriptionError => e
-      fail(name, e.message, fix: "Check the sidecar venv and `ENGINE_CMD` (python3 sidecar/primocut_engine.py doctor --json).")
+      fail(name, e.message, fix: "Check the sidecar venv and `ENGINE_CMD` (python3 sidecar/transcription_engine.py doctor --json).")
     end
 
     def check_llm_key

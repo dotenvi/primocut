@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""primocut-engine — the thin transcription sidecar (docs §1.4).
+"""transcription-engine — the thin transcription sidecar (docs §1.4).
 
 The one Python process the Rails app keeps: GPU transcription is genuinely
 Python-bound (faster-whisper / CTranslate2 / CUDA). Everything else moved to
-Ruby.
+Ruby. The name mirrors its only caller, [[Adapters::TranscriptionEngine]] — the
+two sides of one seam.
 
 Contract:
-    primocut-engine transcribe --audio PATH --language pt --model large-v3-turbo \
+    transcription-engine transcribe --audio PATH --language pt --model large-v3-turbo \
         --device cuda --compute-type float16 --compute-fallbacks float16,int8 \
         --out OUT.json
-    primocut-engine doctor --json
+    transcription-engine doctor --json
 
 Rules (all validated by the boundary spike, docs §5.2):
 - stdout carries JSON ONLY — a small status envelope. All logging goes to stderr.
@@ -190,7 +191,7 @@ def cmd_doctor(_args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="primocut-engine")
+    parser = argparse.ArgumentParser(prog="transcription-engine")
     sub = parser.add_subparsers(dest="command", required=True)
 
     t = sub.add_parser("transcribe")

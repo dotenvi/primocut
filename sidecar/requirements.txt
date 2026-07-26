@@ -1,10 +1,10 @@
-# Python transcription sidecar (primocut_engine.py) — the only Python the Rails
+# Python transcription sidecar (transcription_engine.py) — the only Python the Rails
 # app drives, and the only place these packages may live. Build the venv with:
 #
 #   python3 -m venv sidecar/.venv
 #   sidecar/.venv/bin/pip install -r sidecar/requirements.txt
 #
-# then point ENGINE_CMD at `sidecar/.venv/bin/python sidecar/primocut_engine.py`.
+# then point ENGINE_CMD at `sidecar/.venv/bin/python sidecar/transcription_engine.py`.
 # Pinned to the set verified on WSL2 + RTX 3070 Ti (docs §5.2).
 
 faster-whisper==1.2.1

@@ -2,7 +2,7 @@ require "json"
 require "tempfile"
 
 module Adapters
-  # Drives the `primocut-engine` Python sidecar (docs §1.4). Ruby never imports
+  # Drives the `transcription-engine` Python sidecar (docs §1.4). Ruby never imports
   # Python — it runs the process, reads the JSON status envelope from stdout, and
   # reads the transcript payload from the `--out` file (a long transcript is
   # megabytes of JSON; a pipe risks blocking, so it goes to a file). Ported from
@@ -42,7 +42,7 @@ module Adapters
     def self.default_engine_cmd
       return ENV["ENGINE_CMD"].split if ENV["ENGINE_CMD"].present?
 
-      [ "python3", Rails.root.join("sidecar", "primocut_engine.py").to_s ]
+      [ "python3", Rails.root.join("sidecar", "transcription_engine.py").to_s ]
     end
 
     # Engine/model identifier — goes into Transcript.model and the report.
