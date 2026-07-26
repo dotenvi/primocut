@@ -25,6 +25,20 @@ module Adapters
       "search" => 100
     }.freeze
 
+    # The default project budget the API grants per day, and when that day turns
+    # over. The API reports NO usage of its own — there is no endpoint to ask, only
+    # a 403 `quotaExceeded` once it is too late — so usage is accounted locally
+    # from QUOTA_COSTS. That accounting is exact while this key has no other
+    # client, and it is only meaningful against Google's day, which starts at
+    # midnight Pacific, not at the app's midnight.
+    DAILY_QUOTA_UNITS = 10_000
+    QUOTA_RESET_ZONE = "America/Los_Angeles".freeze
+
+    # The start of the current quota day, as an absolute time.
+    def self.quota_day_start(now = Time.current)
+      now.in_time_zone(QUOTA_RESET_ZONE).beginning_of_day.utc
+    end
+
     # A well-known, stable channel used for the cheap liveness/quota probe.
     PROBE_CHANNEL_ID = "UC_x5XG1OV2P6uZZ5FSM9Ttw".freeze # Google Developers
 

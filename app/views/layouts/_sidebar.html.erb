@@ -20,7 +20,7 @@
 
     <div class="pt-4 pb-1 mt-2.5 px-2 border-t border-line"><span class="eyebrow">Projects</span></div>
 
-    <% Project.order(:name).each do |project| %>
+    <% sidebar.projects.each do |project| %>
       <% active_project = params[:project_id].to_s == project.id.to_s %>
       <details class="group" <%= "open" if active_project %>>
         <summary class="flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] hover:bg-card cursor-pointer list-none marker:hidden [&::-webkit-details-marker]:hidden <%= "text-ink-2" unless active_project %>">
@@ -33,7 +33,7 @@
           <% end %>
           <%= link_to project_niche_path(project), class: class_names("nav no-underline", "on" => active_project && controller_name == "niche") do %>
             <span class="w-3.5 text-[11px] text-ink-3">&#9636;</span>Niche
-            <span class="ml-auto font-mono text-[10.5px] text-ink-3"><%= project.competitor_channels.count %></span>
+            <span class="ml-auto font-mono text-[10.5px] text-ink-3"><%= sidebar.channel_count(project) %></span>
           <% end %>
           <%= link_to project_settings_path(project), class: class_names("nav no-underline", "on" => active_project && controller_name == "settings") do %>
             <span class="w-3.5 text-[11px] text-ink-3">&#9881;</span>Settings
@@ -42,7 +42,7 @@
       </details>
     <% end %>
 
-    <% if Project.none? %>
+    <% if sidebar.projects.empty? %>
       <div class="px-2 py-1.5 text-[12.5px] text-ink-3">No projects yet</div>
     <% end %>
 
@@ -52,10 +52,16 @@
     </div>
   </div>
 
+  <%# Scoped to the current quota DAY, which turns over at midnight Pacific, not
+      at the app's midnight: the API grants this budget per day and reports no
+      usage of its own, so an all-time total read against a daily cap would creep
+      towards "exceeded" forever. %>
   <div class="pt-3 px-2 border-t border-line">
     <div class="font-mono text-[10px] flex justify-between text-ink-3">
       <span>YouTube API quota</span>
-      <span class="text-ok">&mdash;</span>
+      <span class="text-ok" title="Used today, against the daily budget">
+        <%= compact_number(sidebar.quota_used) %> / <%= number_with_delimiter(sidebar.quota_budget) %>
+      </span>
     </div>
   </div>
 </aside>
