@@ -5,52 +5,59 @@
     <div class="eyebrow"><%= @project.name %></div>
     <h1>Niche</h1>
   </div>
+
+  <%# The paid passes that fill this tab's attribute table. Each price loads lazily
+      so the tab is not held up by the scoring the price needs. %>
+  <% if @niche.tab == "patterns" %>
+    <div class="flex gap-1.5">
+      <% %w[thumbnail title].each do |kind| %>
+        <%= turbo_frame_tag "analysis_#{kind}", src: project_niche_analysis_path(@project, kind: kind),
+              loading: "lazy" do %>
+          <button class="btn btn-ai" disabled>Analyze <%= kind == "title" ? "titles" : "thumbnails" %>…</button>
+        <% end %>
+      <% end %>
+    </div>
+  <% end %>
 </div>
+
+<% if flash[:notice] %>
+  <div class="card mb-4 bg-ok-bg border-ok-line text-ok text-[13px]"><%= flash[:notice] %></div>
+<% end %>
+<% if flash[:alert] %>
+  <div class="card mb-4 bg-err-bg border-err-line text-err text-[13px]"><%= flash[:alert] %></div>
+<% end %>
 
 <%# Tabs — server-rendered via ?tab=, matching the PoC IA (patterns/outliers/channels). %>
 <div class="flex border-b border-line mb-5">
-  <% NicheController::TABS.each do |t| %>
+  <% Niche::Screen::TABS.each do |t| %>
     <%= link_to t.capitalize, project_niche_path(@project, tab: t),
-          class: class_names("tab no-underline", "on" => @tab == t) %>
+          class: class_names("tab no-underline", "on" => @niche.tab == t) %>
   <% end %>
 </div>
 
-<% if @tab == "channels" %>
-  <% channels = @dashboard[:channels] %>
-  <% if channels.empty? %>
-    <p class="m">No competitor tracked yet. <span class="text-ink-3">Channel tracking lands in Phase 3.</span></p>
-  <% else %>
-    <table class="w-full border-collapse text-[13px]">
-      <thead><tr><th>Competitor</th><th class="text-right">Subscribers</th></tr></thead>
-      <tbody>
-        <% channels.each do |c| %>
-          <tr class="hover:bg-[#15181C]">
-            <td>
-              <%= link_to c[:title].presence || c[:channel_id],
-                    project_niche_channel_path(@project, c[:channel_id]),
-                    class: "no-underline hover:text-accent" %>
-            </td>
-            <td class="text-right font-mono text-[12px]"><%= compact_number(c[:subscribers]) %></td>
-          </tr>
-        <% end %>
-      </tbody>
-    </table>
+<% if @niche.channels? %>
+  <%= render "channels/list", rows: @niche.channels %>
+
+  <%= form_with url: project_niche_channels_path(@project), method: :post,
+        class: "mt-4 flex gap-2.5 items-center" do |f| %>
+    <%= f.text_field :reference, placeholder: "youtube.com/@channel", class: "max-w-[320px]" %>
+    <%= f.submit "Track channel", class: "btn shrink-0 cursor-pointer" %>
   <% end %>
 <% else %>
-  <% key = @tab == "outliers" ? :outliers : :patterns %>
+  <% key = @niche.tab == "outliers" ? :outliers : :patterns %>
   <div class="flex gap-1.5 mb-4">
-    <%= link_to project_niche_path(@project, tab: @tab, fmt: "long"),
-          class: class_names("chip no-underline", "on" => @fmt == "long") do %>
-      Long-form <%= @dashboard[key]["long"].length %>
+    <%= link_to project_niche_path(@project, tab: @niche.tab, fmt: "long"),
+          class: class_names("chip no-underline", "on" => @niche.fmt == "long") do %>
+      Long-form <%= @niche.count(key, "long") %>
     <% end %>
-    <%= link_to project_niche_path(@project, tab: @tab, fmt: "short"),
-          class: class_names("chip no-underline", "on" => @fmt == "short") do %>
-      Shorts <%= @dashboard[key]["short"].length %>
+    <%= link_to project_niche_path(@project, tab: @niche.tab, fmt: "short"),
+          class: class_names("chip no-underline", "on" => @niche.fmt == "short") do %>
+      Shorts <%= @niche.count(key, "short") %>
     <% end %>
   </div>
 
-  <% if @tab == "patterns" %>
-    <% patterns = @dashboard[:patterns][@fmt] %>
+  <% if @niche.tab == "patterns" %>
+    <% patterns = @niche.rows(:patterns) %>
     <p class="text-ink-2 mb-4 max-w-[640px]">Attributes among definitive outliers (p90 and above) versus the same-format control, reported only when their 95% Wilson intervals separate.</p>
     <% if patterns.empty? %>
       <p class="m">No attribute separates outliers from the control group yet.</p>
@@ -76,7 +83,7 @@
       </table>
     <% end %>
   <% else %>
-    <% outliers = @dashboard[:outliers][@fmt] %>
+    <% outliers = @niche.rows(:outliers) %>
     <% if outliers.empty? %>
       <p class="m">No outlier in this format yet.</p>
     <% else %>
@@ -93,9 +100,9 @@
               <td>
                 <%= link_to o[:title].presence || o[:video_id],
                       project_niche_channel_video_path(@project, o[:channel_id], o[:video_id],
-                        from: "niche", fmt: @fmt),
+                        from: "niche", fmt: @niche.fmt),
                       class: "no-underline hover:text-accent" %>
-                <% if o[:provisional] %><span class="m text-accent"> · provisional</span><% end %>
+                <% if o[:provisional] %><span class="m text-accent"> · recent</span><% end %>
               </td>
               <td class="text-ink-2"><%= o[:channel_title].presence || o[:channel_id] %></td>
               <td class="text-right">

@@ -9,6 +9,12 @@ class CompetitorChannel < ApplicationRecord
          done: "done", error: "error", skipped: "skipped" },
        prefix: :backfill
 
+  # States in which collection is still moving, so the screen keeps polling.
+  # Mirrors the PoC `api.js::backfillActive`.
+  BACKFILL_ACTIVE = %w[queued running].freeze
+
+  def backfill_active? = BACKFILL_ACTIVE.include?(backfill_state)
+
   validates :youtube_channel_id, presence: true, uniqueness: true
 
   # Hard delete means "nothing left". The DB cascades videos/snapshots/etc.;

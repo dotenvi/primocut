@@ -36,7 +36,7 @@ module NavigationHelper
   end
 
   def niche_origin_path(project)
-    fmt = params[:fmt].presence_in(NicheController::FORMATS) || "long"
+    fmt = params[:fmt].presence_in(Niche::Screen::FORMATS) || Niche::Screen::FORMATS.first
     project_niche_path(project, tab: "outliers", fmt: fmt)
   end
 

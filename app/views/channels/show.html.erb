@@ -1,5 +1,5 @@
-<% content_for :title, "#{@channel.title.presence || @channel.youtube_channel_id} — #{@project.name}" %>
-<% ch = @dashboard[:channel] %>
+<% content_for :title, "#{@screen.channel.title.presence || @screen.channel.youtube_channel_id} — #{@project.name}" %>
+<% ch = @screen.dashboard[:channel] %>
 
 <%= link_to "‹ Niche / Channels", project_niche_path(@project, tab: "channels"),
       class: "eyebrow cursor-pointer hover:text-ink-2 mb-2 block no-underline" %>
@@ -18,7 +18,7 @@
   <div class="card">
     <div class="lbl mb-2">Baselines · median views</div>
     <% %w[long short].each do |f| %>
-      <% b = @dashboard[:baselines][f] %>
+      <% b = @screen.dashboard[:baselines][f] %>
       <div class="kv">
         <span><%= f == "long" ? "Long-form" : "Shorts" %></span>
         <span class="font-mono text-[12px]"><%= b ? "#{compact_number(b[:median])} · n=#{b[:sample]}" : "insufficient" %></span>
@@ -27,7 +27,7 @@
   </div>
   <div class="card">
     <div class="lbl mb-2">Engagement · median</div>
-    <% eng = @dashboard[:engagement] %>
+    <% eng = @screen.dashboard[:engagement] %>
     <div class="kv">
       <span>Like rate</span>
       <span class="font-mono text-[12px]"><%= pct(eng["long"][:like_rate_median]) %> long · <%= pct(eng["short"][:like_rate_median]) %> short</span>
@@ -39,7 +39,7 @@
   </div>
 </div>
 
-<% cad = @dashboard[:cadence] %>
+<% cad = @screen.dashboard[:cadence] %>
 <div class="lbl mb-2">Cadence · <%= format("%.1f", cad[:uploads_per_week]) %> uploads/week</div>
 <% bars = MetricsHelper::WEEKDAYS.each_with_index.map { |label, i| [ label, cad[:by_weekday][i.to_s] || 0 ] } %>
 <% max_weekday = [ 1, *bars.map { |_, c| c } ].max %>
@@ -58,15 +58,15 @@
   <span class="lbl">Outliers</span>
   <div class="flex gap-1.5">
     <% %w[long short].each do |f| %>
-      <%= link_to project_niche_channel_path(@project, @channel.youtube_channel_id, fmt: f),
-            class: class_names("chip no-underline", "on" => @fmt == f) do %>
-        <%= f == "long" ? "Long" : "Shorts" %> <%= @dashboard[:outliers][f].length %>
+      <%= link_to project_niche_channel_path(@project, @screen.channel.youtube_channel_id, fmt: f),
+            class: class_names("chip no-underline", "on" => @screen.fmt == f) do %>
+        <%= f == "long" ? "Long" : "Shorts" %> <%= @screen.count(f) %>
       <% end %>
     <% end %>
   </div>
 </div>
 
-<% outliers = @dashboard[:outliers][@fmt] %>
+<% outliers = @screen.outliers %>
 <% if outliers.empty? %>
   <p class="m">No outlier in this format yet.</p>
 <% else %>
@@ -81,7 +81,7 @@
           <td class="text-right font-mono text-[12px] text-ink-3"><%= i + 1 %></td>
           <td>
             <%= link_to o[:title].presence || o[:video_id],
-                  project_niche_channel_video_path(@project, @channel.youtube_channel_id, o[:video_id]),
+                  project_niche_channel_video_path(@project, @screen.channel.youtube_channel_id, o[:video_id]),
                   class: "no-underline hover:text-accent" %>
             <% if o[:provisional] %><span class="m text-accent"> · provisional</span><% end %>
           </td>

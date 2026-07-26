@@ -1,0 +1,44 @@
+<%#
+  The tracked-channel list. While any backfill is in flight the frame carries a
+  `src` and the poll controller, so it re-fetches itself (this same partial via
+  ChannelsController#index) every couple of seconds and shows collection progress.
+  Once every backfill settles the returned frame drops both and polling stops —
+  the same mechanism the source-video rows use.
+
+  The "track channel" form deliberately lives OUTSIDE this partial: it is not part
+  of what polls, and a half-typed reference must not be wiped by a refresh.
+  Locals: rows (Competitors::ChannelList::Row).
+%>
+<% collecting = rows.any?(&:collecting?) %>
+<%= turbo_frame_tag "niche_channels",
+      src: (project_niche_channels_path(@project) if collecting),
+      data: (collecting ? { controller: "poll" } : {}) do %>
+  <% if rows.empty? %>
+    <p class="m">No competitor tracked yet. Add one below to start collecting its uploads.</p>
+  <% else %>
+    <table class="w-full border-collapse text-[13px]">
+      <thead><tr>
+        <th>Competitor</th><th>Handle</th><th class="text-right">Subscribers</th>
+        <th class="text-right">Backfill</th><th></th>
+      </tr></thead>
+      <tbody>
+        <% rows.each do |row| %>
+          <tr class="hover:bg-[#15181C]">
+            <td>
+              <%= link_to row.title, project_niche_channel_path(@project, row.youtube_channel_id),
+                    class: "no-underline hover:text-accent" %>
+            </td>
+            <td class="text-ink-2"><%= row.handle || "—" %></td>
+            <td class="text-right font-mono text-[12px]"><%= compact_number(row.subscribers) %></td>
+            <td class="text-right"><%= backfill_cell(row) %></td>
+            <td class="text-right">
+              <%= button_to "Detach", project_niche_channel_path(@project, row.youtube_channel_id),
+                    method: :delete, class: "btn btn-xs",
+                    form: { data: { turbo_confirm: "Detach “#{row.title}” from this niche? Everything collected is kept." } } %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% end %>
+<% end %>

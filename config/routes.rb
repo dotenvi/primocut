@@ -43,6 +43,15 @@ Rails.application.routes.draw do
     get    "sources/:source_video_id/cut/packaging", to: "cuts#packaging_status", as: :cut_packaging
     post   "sources/:source_video_id/cut/packaging", to: "cuts#package"
     get "niche",    to: "niche#show",     as: :niche
+    # The tracked-channel list: its own frame, because it polls while a backfill
+    # runs and must not drag the scored dashboard along every couple of seconds.
+    # The opt-in AI analysis. Its cost is priced in a lazy frame so opening the
+    # tab never waits on the scoring the price needs.
+    get  "niche/analysis", to: "analyses#show",   as: :niche_analysis
+    post "niche/analysis", to: "analyses#create"
+    get    "niche/channels", to: "channels#index",  as: :niche_channels
+    post   "niche/channels", to: "channels#create"
+    delete "niche/channels/:channel_id", to: "channels#destroy"
     get "niche/channels/:channel_id", to: "channels#show", as: :niche_channel
     get "niche/channels/:channel_id/videos/:video_id", to: "videos#show", as: :niche_channel_video
     get "settings", to: "settings#show",  as: :settings
