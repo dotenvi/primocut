@@ -30,6 +30,11 @@ compatibility that does not exist.
   screen, at the feed page, filter and format you left it on; reached any other
   way, or directly, the link still walks up the hierarchy to the channel.
 
+- The source-videos screen reads as a table, like the PoC's: source video,
+  channel, the topics it yielded, and its pipeline. A failed or finished run can
+  be re-run from the list, and re-submitting a link the project already holds
+  re-runs it instead of silently doing nothing.
+
 - The project Settings screen replaces its placeholder. It lists the channels you
   publish to in this niche — add one, remove one, see its role — and shows the
   outlier band cutoffs in the basis they are measured in (`p90`/`p97`/`p99`, or
