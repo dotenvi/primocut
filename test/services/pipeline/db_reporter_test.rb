@@ -19,8 +19,19 @@ class Pipeline::DbReporterTest < ActiveSupport::TestCase
     assert_equal "Transcription", @job.stage
     assert_equal 30, @job.progress
     assert_equal "started", @job.status
-    assert_equal [ "Audio download", "Transcription" ], @job.stage_history
+    assert_equal [ "Audio download", "Transcription" ], @job.stage_history.map { |h| h["stage"] }
     assert_equal "transcribing", @sv.reload.status
+  end
+
+  test "each transition is stamped with when it happened" do
+    # The timestamp is the only source of per-step duration — a trail of bare
+    # names cannot say how long anything took.
+    at = Time.utc(2026, 2, 1, 12, 0, 0)
+    Pipeline::DbReporter.new(@job).update(stage: "Metadata", progress: 5, at: at)
+
+    entry = @job.reload.stage_history.sole
+    assert_equal "Metadata", entry["stage"]
+    assert_equal at, Time.zone.parse(entry["at"])
   end
 
   test "a stage without a video_status leaves the source video status untouched" do
