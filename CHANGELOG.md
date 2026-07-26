@@ -25,6 +25,10 @@ compatibility that does not exist.
 - "Mark all as seen" clears the Radar feed, and each of its two feeds (New,
   Earlier) pages independently.
 - Open operational failures surface above the Radar feed as a "Needs you" band.
+- The video screen's back link points at where the screen was opened from.
+  Arriving from the Radar (or the niche outlier ranking) returns you to that
+  screen, at the feed page, filter and format you left it on; reached any other
+  way, or directly, the link still walks up the hierarchy to the channel.
 
 ### Fixed
 
@@ -34,7 +38,6 @@ compatibility that does not exist.
 - The Radar project filter now scopes through the project's tracked channels. It
   compared `events.project_id`, which is always null for a niche event (a channel
   can belong to several projects), so filtering yielded an empty feed.
-
 - `rake primocut:doctor` no longer reports NVENC as unavailable when it actually
   works. The probe encoded a frame too small for NVENC on ffmpeg 7.x (rejected with
   "-22 Invalid argument"), producing a false negative; it now encodes a valid tiny
