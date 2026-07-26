@@ -54,6 +54,8 @@ Rails.application.routes.draw do
     delete "niche/channels/:channel_id", to: "channels#destroy"
     get "niche/channels/:channel_id", to: "channels#show", as: :niche_channel
     get "niche/channels/:channel_id/videos/:video_id", to: "videos#show", as: :niche_channel_video
-    get "settings", to: "settings#show",  as: :settings
+    get    "settings", to: "settings#show",  as: :settings
+    post   "settings/channels", to: "own_channels#create", as: :settings_channels
+    delete "settings/channels/:id", to: "own_channels#destroy", as: :settings_channel
   end
 end

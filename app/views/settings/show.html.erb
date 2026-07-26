@@ -1,5 +1,56 @@
 <% content_for :title, "Settings — #{@project.name}" %>
-<%= render "shared/placeholder",
-      eyebrow: @project.name,
-      title: "Settings",
-      note: "Own channels and outlier bands for this project (read-only). Wired up in Phase 2." %>
+
+<div class="mb-5">
+  <div class="eyebrow"><%= @project.name %></div>
+  <h1>Settings</h1>
+</div>
+
+<% if flash[:notice] %>
+  <div class="card mb-4 bg-ok-bg border-ok-line text-ok text-[13px]"><%= flash[:notice] %></div>
+<% end %>
+<% if flash[:alert] %>
+  <div class="card mb-4 bg-err-bg border-err-line text-err text-[13px]"><%= flash[:alert] %></div>
+<% end %>
+
+<div class="lbl mb-2">My channels in this niche</div>
+<p class="text-ink-2 mb-2.5 max-w-[600px]">
+  Any source video in this project can become a cut on any of these. They share the same niche patterns.
+</p>
+
+<div class="card mb-7 max-w-[600px]">
+  <% if @settings.own_channels.empty? %>
+    <p class="m">No own channel yet.</p>
+  <% else %>
+    <% @settings.own_channels.each do |channel| %>
+      <div class="kv">
+        <span class="truncate"><%= own_channel_label(channel) %></span>
+        <span class="flex items-center gap-2 shrink-0">
+          <span class="m"><%= channel.role.presence || "—" %></span>
+          <%= button_to "Remove", project_settings_channel_path(@project, channel),
+                method: :delete, class: "btn btn-xs",
+                form: { data: { turbo_confirm: "Remove #{own_channel_label(channel)} from this niche?" } } %>
+        </span>
+      </div>
+    <% end %>
+  <% end %>
+
+  <%= form_with url: project_settings_channels_path(@project), method: :post,
+        scope: :own_channel, class: "flex gap-2 items-center mt-3 flex-wrap" do |f| %>
+    <%= f.text_field :channel_url, placeholder: "youtube.com/@yourchannel", class: "flex-1 min-w-[200px]" %>
+    <%= f.text_field :handle, placeholder: "@handle", class: "w-28" %>
+    <%= f.text_field :role, placeholder: "role", class: "w-24" %>
+    <%= f.submit "+ Add", class: "btn shrink-0 cursor-pointer" %>
+  <% end %>
+</div>
+
+<div class="lbl mb-2">Outlier bands</div>
+<div class="card max-w-[600px]">
+  <p class="m mb-3">Read-only — bands are a global setting, applied identically to every niche.</p>
+  <% SettingsHelper::BAND_ROWS.each do |band, label, colour| %>
+    <div class="kv">
+      <span><%= label %></span>
+      <span class="font-mono text-[12px] <%= colour %>"><%= band_cutoff_label(@settings, band) %></span>
+    </div>
+  <% end %>
+  <p class="m text-[10.5px] mt-3 leading-relaxed"><%= band_basis_note(@settings) %></p>
+</div>
