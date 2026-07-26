@@ -19,7 +19,8 @@ Rails.application.routes.draw do
   scope "projects/:project_id", as: :project do
     get  "sources",     to: "sources#index",  as: :sources
     post "sources",     to: "sources#create"
-    get  "sources/:id", to: "sources#show",   as: :source # single-row polling frame
+    get  "sources/list", to: "sources#show",  as: :sources_list # the polling frame
+    post "sources/:id/rerun", to: "sources#rerun", as: :rerun_source
 
     # The Cut Room, per source video. Built section by section: topics + triage first.
     get  "sources/:source_video_id/cut_room", to: "cuts#show", as: :cut_room

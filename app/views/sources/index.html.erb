@@ -1,22 +1,23 @@
 <% content_for :title, "Cut Room — #{@project.name}" %>
 
-<div class="flex items-end justify-between gap-3 mb-5">
+<div class="flex items-end justify-between gap-3 mb-5 max-w-[1160px]">
   <div><div class="eyebrow"><%= @project.name %></div><h1>Cut Room</h1></div>
+  <%# The submit field is a disclosure, not permanent furniture: this toggles it. %>
+  <%= link_to "+ New video",
+        project_sources_path(@project, pipeline: params[:pipeline], new: (1 unless @sources.adding?)),
+        class: "btn btn-pri no-underline whitespace-nowrap" %>
 </div>
 
 <% if flash[:notice] %>
-  <div class="card mb-4 bg-ok-bg border-ok-line text-ok text-[13px]"><%= flash[:notice] %></div>
+  <div class="card mb-4 max-w-[1160px] bg-ok-bg border-ok-line text-ok text-[13px]"><%= flash[:notice] %></div>
 <% end %>
 <% if flash[:alert] %>
-  <div class="card mb-4 bg-err-bg border-err-line text-err text-[13px]"><%= flash[:alert] %></div>
+  <div class="card mb-4 max-w-[1160px] bg-err-bg border-err-line text-err text-[13px]"><%= flash[:alert] %></div>
 <% end %>
 
-<%= render "form" %>
+<%# Outside the polling frame: a half-pasted link must survive a refresh. %>
+<%= render "form" if @sources.adding? %>
 
-<% if @source_videos.empty? %>
-  <p class="m mt-6">No source video yet. Paste a YouTube link above to start processing.</p>
-<% else %>
-  <div class="flex flex-col gap-2 mt-6">
-    <%= render partial: "source_video", collection: @source_videos, as: :source_video %>
-  </div>
-<% end %>
+<div class="mt-6">
+  <%= render "list", sources: @sources %>
+</div>

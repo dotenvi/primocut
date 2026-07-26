@@ -1,0 +1,92 @@
+<%#
+  The submitted source videos. While anything is in flight the frame carries a
+  `src` and the poll controller, so it re-fetches itself (this same partial via
+  SourcesController#show) and shows live progress; once everything settles the
+  returned frame drops both and polling stops.
+
+  The frame wraps the whole table because a frame inside a `tbody` is relocated
+  out of the table by the parser — it cannot wrap a single row.
+  Locals: sources (a Sources::Screen::Result).
+%>
+<%= turbo_frame_tag "source_videos",
+      src: (project_sources_list_path(@project, pipeline: params[:pipeline], new: params[:new]) if sources.polling?),
+      data: (sources.polling? ? { controller: "poll" } : {}) do %>
+  <% if sources.rows.empty? %>
+    <div class="border border-line rounded-card py-10 text-center bg-panel">
+      <h2 class="mb-1.5">No source video in this niche yet</h2>
+      <p class="text-ink-2 m-0">Paste a YouTube link and it lands straight in <%= @project.name %>.</p>
+      <%= link_to "+ New video", project_sources_path(@project, new: 1),
+            class: "btn btn-pri no-underline inline-block mt-4" %>
+    </div>
+  <% else %>
+    <%# The table holds the same 1160px measure in both states: opening the panel
+        widens the CONTAINER by exactly the panel plus the gap (1160+20+440), so
+        the list neither shrinks to pay for the panel nor drifts wider into the
+        canvas. Letting it take the whole 1680px canvas — as the PoC does — moves
+        the table a few pixels every time the panel is toggled. %>
+    <div class="flex items-start gap-5 <%= sources.opened? ? "max-w-[1620px]" : "max-w-[1160px]" %>">
+    <table class="flex-1 min-w-0 border-collapse text-[13px]">
+      <thead><tr>
+        <th>Source video</th><th>Channel</th>
+        <th class="text-right">Topics</th><th class="text-right">Pipeline</th><th></th>
+      </tr></thead>
+      <tbody>
+        <% sources.rows.each do |row| %>
+          <tr class="hover:bg-[#15181C]">
+            <td class="max-w-[420px]">
+              <% if row.cuttable? %>
+                <%= link_to row.title, project_cut_room_path(@project, row.source_video),
+                      class: "no-underline hover:text-accent" %>
+              <% else %>
+                <span class="text-ink-2"><%= row.title %></span>
+              <% end %>
+            </td>
+            <td class="text-ink-2 truncate"><%= row.channel || "—" %></td>
+            <td class="text-right font-mono text-[12px] <%= "text-ink-3" if row.topic_count.zero? %>">
+              <%= row.topic_count.zero? ? "—" : row.topic_count %>
+            </td>
+            <td class="text-right">
+              <div class="flex items-center justify-end gap-2.5">
+                <% if row.active? %>
+                  <div class="w-[190px]">
+                    <div class="h-1.5 bg-sunk rounded overflow-hidden">
+                      <div class="h-full bg-accent transition-[width] duration-500"
+                           style="width: <%= row.job&.progress.to_i %>%"></div>
+                    </div>
+                    <div class="m text-ink-3 mt-1 truncate text-left"><%= source_progress_note(row) %></div>
+                  </div>
+                <% elsif row.failed? %>
+                  <span class="m text-err truncate max-w-[190px]" title="<%= source_progress_note(row) %>">
+                    <%= source_progress_note(row) %>
+                  </span>
+                <% end %>
+                <%= source_status_tag(row.source_video) %>
+              </div>
+            </td>
+            <td class="text-right">
+              <%# The eye toggles this row's pipeline panel. It is a link, not a
+                  control with state: the open row lives in the url, so a poll and
+                  a reload both keep the panel where it was. %>
+              <% opened = sources.opened&.id == row.id %>
+              <%= link_to project_sources_path(@project, pipeline: (row.id unless opened)),
+                    class: class_names("inline-block p-1 -m-1 rounded no-underline hover:text-ink",
+                      "text-accent" => opened, "text-ink-3" => !opened),
+                    title: "Show the pipeline", "aria-label": "Show the pipeline",
+                    "aria-pressed": opened.to_s do %>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+                </svg>
+              <% end %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+
+    <% if sources.opened? %>
+      <%= render "pipeline", row: sources.opened %>
+    <% end %>
+    </div>
+  <% end %>
+<% end %>

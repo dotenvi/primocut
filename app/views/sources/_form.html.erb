@@ -1,7 +1,16 @@
+<%#
+  The submit card. It carries the table's own measure so the field and the list
+  line up, and it says where the video lands: the project comes from the route,
+  never from a second picker.
+%>
 <%= form_with url: project_sources_path(@project), scope: :source_video, method: :post,
-      class: "flex gap-2 max-w-[640px]" do |f| %>
-  <div class="flex-1">
-    <%= f.text_field :url, placeholder: "https://www.youtube.com/watch?v=…", autocomplete: "off" %>
+      class: "card mb-4 max-w-[1160px]" do |f| %>
+  <div class="flex gap-2.5 items-center">
+    <%= f.text_field :url, placeholder: "https://www.youtube.com/watch?v=…",
+          autocomplete: "off", autofocus: true %>
+    <%= f.submit "Process", class: "btn btn-pri shrink-0 cursor-pointer" %>
   </div>
-  <%= f.submit "Process", class: "btn btn-pri whitespace-nowrap" %>
+  <p class="m text-[10.5px] mt-2.5">
+    Lands in <%= @project.name %>. The project comes from context — you don't pick it twice.
+  </p>
 <% end %>

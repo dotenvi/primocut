@@ -10,12 +10,16 @@ module Pipeline
       @source_video = pipeline_job.source_video
     end
 
-    def update(stage:, progress:, video_status: nil)
+    # Each transition is recorded with the moment it happened. The timestamp is
+    # not decoration: it is the only source of per-step duration, and a trail of
+    # bare stage names cannot say how long anything took. Same shape the PoC
+    # wrote, so imported runs and new ones read identically.
+    def update(stage:, progress:, video_status: nil, at: Time.current)
       @job.update!(
         stage: stage,
         progress: progress,
         status: "started",
-        stage_history: @job.stage_history + [ stage ]
+        stage_history: @job.stage_history + [ { "stage" => stage, "at" => at.iso8601 } ]
       )
       @source_video.update!(status: video_status) if video_status
     end
