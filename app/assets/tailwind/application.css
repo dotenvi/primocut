@@ -66,6 +66,8 @@
   h1 { @apply text-[26px] font-semibold tracking-[-0.02em] leading-tight; }
   h2 { @apply text-[18px] font-semibold tracking-[-0.01em]; }
   input[type='text'] { @apply font-mono text-[12.5px] bg-sunk border border-line-strong rounded-md px-3 py-2 text-ink w-full placeholder:text-ink-3 focus:outline-none focus:border-accent; }
+  td { @apply py-2 pr-2.5 border-t border-line align-middle; }
+  th { @apply text-left font-mono text-[10px] tracking-[0.12em] uppercase text-ink-3 font-normal pb-2 pr-2.5; }
   :focus-visible { @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-bg; }
 }
 
