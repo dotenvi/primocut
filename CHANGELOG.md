@@ -16,7 +16,24 @@ compatibility that does not exist.
 
 ## [Unreleased]
 
+### Added
+
+- The Radar feed now shows what actually happened: each card names the competitor
+  video behind the event, with its thumbnail, band tag (p90/p97/p99), the project
+  badges of the channel that published it, the view/median metrics and the
+  channel-spread strip. Cards open the video report.
+- "Mark all as seen" clears the Radar feed, and each of its two feeds (New,
+  Earlier) pages independently.
+- Open operational failures surface above the Radar feed as a "Needs you" band.
+
 ### Fixed
+
+- Radar cards no longer render as empty rows. They read `payload["title"]`, which
+  no event has ever carried — titles, channels and thumbnails are resolved from
+  the subjects the event references.
+- The Radar project filter now scopes through the project's tracked channels. It
+  compared `events.project_id`, which is always null for a niche event (a channel
+  can belong to several projects), so filtering yielded an empty feed.
 
 - `rake primocut:doctor` no longer reports NVENC as unavailable when it actually
   works. The probe encoded a frame too small for NVENC on ffmpeg 7.x (rejected with
