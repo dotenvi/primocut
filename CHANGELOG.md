@@ -30,10 +30,36 @@ compatibility that does not exist.
   screen, at the feed page, filter and format you left it on; reached any other
   way, or directly, the link still walks up the hierarchy to the channel.
 
+- The Niche screen's Patterns tab runs the opt-in AI analysis. Two buttons —
+  `Analyze thumbnails`, `Analyze titles` — each priced before the click
+  (`· 77 new`, or `· all cached`), because the pass costs an LLM call per video.
+  Only cache misses are dispatched, so a re-run never pays twice, and the price
+  comes from the same gate the job uses. The buttons load their own price lazily,
+  so the tab never waits on the scoring the price needs.
+
+- The Niche screen's Channels tab tracks and detaches competitors. It shows each
+  channel's handle, reach and collection state, follows a running backfill live,
+  and accepts a channel reference to start collecting a new one — the registration
+  and backfill this drives already existed with no way to reach them.
+
 - The Activity log now reads as a log: each row names the job, the subject it
   acted on, the API quota it spent and whether it succeeded, under a day
   separator, with the total quota accounted in the header. It pages backwards
   through the whole history instead of stopping at the newest hundred.
+
+### Changed
+
+- The opt-in AI pass over a competitor's video is called **analysis**, not
+  "enrichment", throughout the code: `Enrichment::VideoEnricher` →
+  `Competitors::VideoAnalysis`, `Enrichment::Comments` →
+  `Competitors::CommentSynthesis` (beside the `CommentCollection` it pairs with),
+  `Enrichment::Facets` → `Competitors::PackagingFacets`, `Enrichment::Prompts` →
+  `Competitors::AnalysisPrompts`, `Enrichment::EnrichJob` →
+  `Competitors::VideoAnalysisJob`. "Enrichment" named a storage table, not the
+  operation, and the whole pass only ever ran on competitor videos. `VideoAnalysis#call`
+  now returns `:analyzed` where it returned `:enriched`. The `video_enrichments`
+  table and the `ENRICHMENT_MODEL` variable keep their names — those are stored
+  data and an external contract, not vocabulary.
 
 ### Fixed
 
