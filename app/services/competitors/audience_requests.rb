@@ -1,8 +1,8 @@
-module Enrichment
+module Competitors
   # Project-level aggregation of what the audience asked for, merged across the
   # comment syntheses of a project's videos. A pure read: it loads the `done`
   # `comment_synthesis` payloads for the project's videos and folds them with
-  # [[Enrichment::Comments]].aggregate_requests, so spelling variants collapse and
+  # [[Competitors::CommentSynthesis]].aggregate_requests, so spelling variants collapse and
   # the ranking is plain counting. Ported from the PoC `service.project_dashboard`
   # (`audience_requests`).
   class AudienceRequests
@@ -17,10 +17,10 @@ module Enrichment
         .distinct.pluck(:id)
 
       items = VideoEnrichment
-        .where(competitor_video_id: video_ids, kind: Comments::KIND, state: "done")
+        .where(competitor_video_id: video_ids, kind: CommentSynthesis::KIND, state: "done")
         .pluck(:competitor_video_id, :payload)
 
-      Comments.aggregate_requests(items)
+      CommentSynthesis.aggregate_requests(items)
     end
   end
 end

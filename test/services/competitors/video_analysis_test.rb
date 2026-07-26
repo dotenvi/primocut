@@ -1,10 +1,10 @@
 require "test_helper"
 
-# Tests for the opt-in title enrichment with the LLM fully faked (no network).
-# Covers the content-hash cache (paid once, re-run is free), re-enrichment on a
+# Tests for the opt-in title analysis with the LLM fully faked (no network).
+# Covers the content-hash cache (paid once, re-run is free), re-analysis on a
 # title change, the derived boolean facets, per-video error isolation with a hash
 # reset for retry, an unknown video, and an unknown kind (a caller bug).
-class Enrichment::VideoEnricherTest < ActiveSupport::TestCase
+class Competitors::VideoAnalysisTest < ActiveSupport::TestCase
   RAW = { "person_names" => [ "Fulano" ], "topic" => "rivalidade", "tone" => "drama", "quoted_speech" => "" }.freeze
 
   # A fake SelectionLlm: counts calls and returns a canned payload (or raises).
@@ -41,13 +41,13 @@ class Enrichment::VideoEnricherTest < ActiveSupport::TestCase
     "is_confrontation_framing" => true
   }.freeze
 
-  def enricher(llm) = Enrichment::VideoEnricher.new(llm:)
+  def analyzer(llm) = Competitors::VideoAnalysis.new(llm:)
 
-  test "enriches the title and stores the raw output merged with derived facets" do
+  test "analyzes the title and stores the raw output merged with derived facets" do
     v = video
     llm = FakeLLM.new(raw: RAW)
 
-    assert_equal :enriched, enricher(llm).call("v1", kind: "title")
+    assert_equal :analyzed, analyzer(llm).call("v1", kind: "title")
 
     row = v.video_attributes.find_by(source: "title_llm")
     assert row.state_done?
@@ -62,28 +62,28 @@ class Enrichment::VideoEnricherTest < ActiveSupport::TestCase
   test "a second run with the same title is a free cache hit" do
     video
     llm = FakeLLM.new(raw: RAW)
-    e = enricher(llm)
+    e = analyzer(llm)
 
     e.call("v1", kind: "title")
     assert_equal :cached, e.call("v1", kind: "title")
     assert_equal 1, llm.calls # never recharged
   end
 
-  test "a title change re-enriches" do
+  test "a title change re-analyzes" do
     v = video
     llm = FakeLLM.new(raw: RAW)
-    e = enricher(llm)
+    e = analyzer(llm)
 
     e.call("v1", kind: "title")
     v.update!(title: "Outro título completamente diferente")
-    assert_equal :enriched, e.call("v1", kind: "title")
+    assert_equal :analyzed, e.call("v1", kind: "title")
     assert_equal 2, llm.calls
   end
 
   test "an LLM failure is isolated and clears the hash for retry" do
     v = video
 
-    assert_equal :failed, enricher(FakeLLM.new(boom: true)).call("v1", kind: "title")
+    assert_equal :failed, analyzer(FakeLLM.new(boom: true)).call("v1", kind: "title")
 
     row = v.video_attributes.find_by(source: "title_llm")
     assert row.state_error?
@@ -92,26 +92,26 @@ class Enrichment::VideoEnricherTest < ActiveSupport::TestCase
   end
 
   test "an unknown video does not crash" do
-    assert_equal :failed, enricher(FakeLLM.new(raw: RAW)).call("nope", kind: "title")
+    assert_equal :failed, analyzer(FakeLLM.new(raw: RAW)).call("nope", kind: "title")
   end
 
   test "an unknown kind is a caller bug, not a per-video failure" do
     video
-    assert_raises(Enrichment::VideoEnricher::UnknownKind) do
-      enricher(FakeLLM.new(raw: RAW)).call("v1", kind: "bogus")
+    assert_raises(Competitors::VideoAnalysis::UnknownKind) do
+      analyzer(FakeLLM.new(raw: RAW)).call("v1", kind: "bogus")
     end
   end
 
   # ------------------------- thumbnail (vision) -------------------------
 
-  test "enriches the thumbnail via vision and stores raw output plus facets" do
+  test "analyzes the thumbnail via vision and stores raw output plus facets" do
     v = video_with_thumb
     llm = FakeLLM.new(raw: THUMB_RAW)
     fetched = nil
     fetcher = ->(url) { fetched = url; "IMG".b }
-    e = Enrichment::VideoEnricher.new(llm:, thumbnail_fetcher: fetcher)
+    e = Competitors::VideoAnalysis.new(llm:, thumbnail_fetcher: fetcher)
 
-    assert_equal :enriched, e.call("v1", kind: "thumbnail")
+    assert_equal :analyzed, e.call("v1", kind: "thumbnail")
     assert_equal "https://i.ytimg.com/vi/v1/hq.jpg", fetched # fetched from the stored URL
 
     row = v.video_attributes.find_by(source: "thumbnail_llm")
@@ -129,7 +129,7 @@ class Enrichment::VideoEnricherTest < ActiveSupport::TestCase
   test "the thumbnail is cached by the byte hash (no re-fetch, no LLM call)" do
     video_with_thumb
     llm = FakeLLM.new(raw: THUMB_RAW)
-    e = Enrichment::VideoEnricher.new(llm:, thumbnail_fetcher: ->(_url) { "IMG".b })
+    e = Competitors::VideoAnalysis.new(llm:, thumbnail_fetcher: ->(_url) { "IMG".b })
 
     e.call("v1", kind: "thumbnail")
     assert_equal :cached, e.call("v1", kind: "thumbnail")
@@ -138,7 +138,7 @@ class Enrichment::VideoEnricherTest < ActiveSupport::TestCase
 
   test "a thumbnail with no byte hash yet is refused with a visible error" do
     v = video # thumbnail_hash defaults to ""
-    e = Enrichment::VideoEnricher.new(llm: FakeLLM.new(raw: THUMB_RAW), thumbnail_fetcher: ->(_url) { "IMG".b })
+    e = Competitors::VideoAnalysis.new(llm: FakeLLM.new(raw: THUMB_RAW), thumbnail_fetcher: ->(_url) { "IMG".b })
 
     assert_equal :failed, e.call("v1", kind: "thumbnail")
     row = v.video_attributes.find_by(source: "thumbnail_llm")
@@ -164,9 +164,9 @@ class Enrichment::VideoEnricherTest < ActiveSupport::TestCase
   test "synthesises comments into video_enrichments with quotes resolved from the store" do
     v = video_with_comments
 
-    assert_equal :enriched, enricher(FakeLLM.new(raw: SYNTH_RAW)).call("v1", kind: "comments")
+    assert_equal :analyzed, analyzer(FakeLLM.new(raw: SYNTH_RAW)).call("v1", kind: "comments")
 
-    row = v.video_enrichments.find_by(kind: Enrichment::Comments::KIND)
+    row = v.video_enrichments.find_by(kind: Competitors::CommentSynthesis::KIND)
     assert row.state_done?
     assert_equal "positive", row.payload["sentiment"]
     assert_equal "c0", row.payload["themes"][0]["example"]["comment_id"]    # resolved from index 0
@@ -179,7 +179,7 @@ class Enrichment::VideoEnricherTest < ActiveSupport::TestCase
   test "the synthesis is cached by the comment-set hash" do
     video_with_comments
     llm = FakeLLM.new(raw: SYNTH_RAW)
-    e = enricher(llm)
+    e = analyzer(llm)
 
     e.call("v1", kind: "comments")
     assert_equal :cached, e.call("v1", kind: "comments")
@@ -189,9 +189,9 @@ class Enrichment::VideoEnricherTest < ActiveSupport::TestCase
   test "a video with no comments is refused with a visible reason" do
     v = video # no comments collected
 
-    assert_equal :failed, enricher(FakeLLM.new(raw: SYNTH_RAW)).call("v1", kind: "comments")
+    assert_equal :failed, analyzer(FakeLLM.new(raw: SYNTH_RAW)).call("v1", kind: "comments")
 
-    row = v.video_enrichments.find_by(kind: Enrichment::Comments::KIND)
+    row = v.video_enrichments.find_by(kind: Competitors::CommentSynthesis::KIND)
     assert row.state_error?
     assert_includes row.error, "collected"
   end
@@ -200,16 +200,16 @@ class Enrichment::VideoEnricherTest < ActiveSupport::TestCase
     video_with_comments
     recollected = nil
     recollector = ->(video) { recollected = video.youtube_video_id }
-    e = Enrichment::VideoEnricher.new(llm: FakeLLM.new(raw: SYNTH_RAW), comment_recollector: recollector)
+    e = Competitors::VideoAnalysis.new(llm: FakeLLM.new(raw: SYNTH_RAW), comment_recollector: recollector)
 
-    assert_equal :enriched, e.call("v1", kind: "comments", regenerate: true)
+    assert_equal :analyzed, e.call("v1", kind: "comments", regenerate: true)
     assert_equal "v1", recollected
   end
 
   test "regenerate is rejected for a packaging kind (a caller bug)" do
     video
-    assert_raises(Enrichment::VideoEnricher::RegenerateNotAllowed) do
-      enricher(FakeLLM.new(raw: RAW)).call("v1", kind: "title", regenerate: true)
+    assert_raises(Competitors::VideoAnalysis::RegenerateNotAllowed) do
+      analyzer(FakeLLM.new(raw: RAW)).call("v1", kind: "title", regenerate: true)
     end
   end
 end

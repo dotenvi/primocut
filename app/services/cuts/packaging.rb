@@ -7,7 +7,7 @@ module Cuts
   # content, forces the matching structured schema, and VALIDATES the answer against
   # what was measured before returning it (the never-invent rule). Ported from the
   # PoC `packaging/generate.py`. The cache gate + persistence live in
-  # `Cuts::PackagingService`, the same split `Enrichment::VideoEnricher` uses.
+  # `Cuts::PackagingService`, the same split `Competitors::VideoAnalysis` uses.
   module Packaging
     module_function
 

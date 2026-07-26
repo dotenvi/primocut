@@ -88,7 +88,7 @@ module Metrics
     # Conditional distributions per format, per attribute source. The outlier group
     # is the banded mature videos with a row for that source; the control is the
     # band-less mature ones. Provisional/insufficient videos are censored (status !=
-    # ok). An un-enriched video is *unknown*, not "attribute absent", so each source's
+    # ok). An un-analyzed video is *unknown*, not "attribute absent", so each source's
     # groups are restricted to the videos that actually have a row for it.
     def patterns(all_scored)
       by_format(all_scored.flatten) { |sc| sc.is_short }.transform_values { |scs| patterns_for(scs) }

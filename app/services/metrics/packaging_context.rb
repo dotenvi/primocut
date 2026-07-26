@@ -104,9 +104,9 @@ module Metrics
       out_ids = outliers.map(&:competitor_video_id).to_set
       CARRIES_FIELDS.each_with_object({}) do |(source, fields), result|
         attrs = grouped_attributes(mature, source)
-        out_enriched = attrs.keys.select { |id| out_ids.include?(id) }
-        ctl_enriched = attrs.keys.reject { |id| out_ids.include?(id) }
-        fields.each { |field| result[field] = mine_field(attrs, out_enriched, ctl_enriched, field) }
+        out_analyzed = attrs.keys.select { |id| out_ids.include?(id) }
+        ctl_analyzed = attrs.keys.reject { |id| out_ids.include?(id) }
+        fields.each { |field| result[field] = mine_field(attrs, out_analyzed, ctl_analyzed, field) }
       end
     end
 
@@ -143,7 +143,7 @@ module Metrics
       rows.sort_by { |r| [ r[:lift].nil? ? 0 : 1, r[:lift] || 0.0, r[:videos_outlier] ] }.reverse
     end
 
-    # The top outliers by median multiple, with their enriched attributes — real
+    # The top outliers by median multiple, with their analyzed attributes — real
     # titles and real measured attributes the prompt can reference, never fabricated.
     def examples(outliers)
       top = outliers.sort_by { |sc| -sc.score.median_multiple }.first(@config.packaging_examples)

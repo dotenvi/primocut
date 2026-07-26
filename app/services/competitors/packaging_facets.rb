@@ -1,11 +1,11 @@
-module Enrichment
+module Competitors
   # Boolean facets derived from the model's raw output, in code (not asked of the
   # model), so the thresholds stay auditable and tunable without re-paying for the
   # analysis. `Metrics::Patterns` only counts booleans, so these facets are what
   # reaches the conditional distributions. The enums are one-hot expanded in full
   # (not just the observed value) so the reported attribute set does not depend on
-  # which videos happen to be enriched. Ported from the PoC `metrics/enrichment.py`.
-  module Facets
+  # which videos happen to be analyzed. Ported from the PoC `metrics/enrichment.py`.
+  module PackagingFacets
     TONES = %w[neutral hype outrage humor curiosity drama informative].freeze
     EXPRESSIONS = %w[none neutral happy shock anger sadness fear disgust].freeze
     COLORS = %w[red orange yellow green blue purple pink brown black white gray].freeze

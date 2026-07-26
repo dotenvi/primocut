@@ -1,9 +1,9 @@
-module Enrichment
-  # System prompts + JSON schemas for the opt-in enrichment kinds. Written in plain
+module Competitors
+  # System prompts + JSON schemas for the opt-in analysis kinds. Written in plain
   # JSON Schema (fed straight to `with_schema`); ported from the PoC
   # `analysis/enrichment_prompts.py`. `title`, `thumbnail` (vision) and the
   # `comments` synthesis.
-  module Prompts
+  module AnalysisPrompts
     COMMENT_SYNTHESIS_SYSTEM = <<~SYS.strip.freeze
       You read the top comments of a YouTube video for a clip editor studying the demand \
       in a niche. Report only what the comments actually say. A request counts only when a \

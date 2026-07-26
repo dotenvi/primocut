@@ -77,8 +77,8 @@ module Metrics
     end
 
     # One entry per attribute source that exists for the video (syntactic today; the
-    # LLM sources appear once enrichment lands). A source nobody produced is simply
-    # absent — an un-enriched video is "unknown", not "attribute absent".
+    # LLM sources appear once analysis lands). A source nobody produced is simply
+    # absent — an un-analyzed video is "unknown", not "attribute absent".
     def attributes_by_source
       @video.video_attributes.each_with_object({}) do |row, acc|
         acc[row.source] = { values: row.attrs, state: row.state, error: row.error, updated_at: row.updated_at&.iso8601 }

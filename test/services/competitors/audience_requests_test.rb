@@ -2,16 +2,16 @@ require "test_helper"
 
 # Tests that the project-level audience-request aggregation reads only the project's
 # own comment syntheses and folds their requests, merging spelling variants.
-class Enrichment::AudienceRequestsTest < ActiveSupport::TestCase
+class Competitors::AudienceRequestsTest < ActiveSupport::TestCase
   def synthesise(video, requests)
     video.video_enrichments.create!(
-      kind: Enrichment::Comments::KIND, state: "done", content_hash: "h#{video.id}",
+      kind: Competitors::CommentSynthesis::KIND, state: "done", content_hash: "h#{video.id}",
       payload: { "requests" => requests }
     )
   end
 
   def guest(value, mentions)
-    { "type" => "guest", "value" => value, "value_key" => Enrichment::Comments.request_key(value), "mentions" => mentions }
+    { "type" => "guest", "value" => value, "value_key" => Competitors::CommentSynthesis.request_key(value), "mentions" => mentions }
   end
 
   test "aggregates the project's syntheses and never leaks a foreign project's" do
@@ -29,7 +29,7 @@ class Enrichment::AudienceRequestsTest < ActiveSupport::TestCase
     ox = other_channel.competitor_videos.create!(youtube_video_id: "x1", title: "X")
     synthesise(ox, [ guest("Ninguem", 9) ])
 
-    agg = Enrichment::AudienceRequests.new(project).call
+    agg = Competitors::AudienceRequests.new(project).call
 
     guests = agg["by_type"]["guest"]
     assert_equal 1, guests.size

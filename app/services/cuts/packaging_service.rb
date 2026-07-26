@@ -28,7 +28,7 @@ module Cuts
       frames_per_clip: (ENV["PACKAGING_FRAMES_PER_CLIP"].presence || "3").to_i,
       scene_threshold: (ENV["PACKAGING_SCENE_THRESHOLD"].presence || "0.30").to_f,
       context_builder: ->(project) { Metrics::PackagingContext.new(project).call },
-      audience_requests: ->(project) { Enrichment::AudienceRequests.new(project).call }
+      audience_requests: ->(project) { Competitors::AudienceRequests.new(project).call }
     )
       @llm = llm
       @ffmpeg = ffmpeg

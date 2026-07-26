@@ -256,7 +256,7 @@ module Cuts
 
     def render_examples(context)
       examples = Array(context[:examples])
-      return "REAL OUTLIER EXAMPLES: (none enriched yet)" if examples.empty?
+      return "REAL OUTLIER EXAMPLES: (none analyzed yet)" if examples.empty?
 
       lines = [ "REAL OUTLIER EXAMPLES (real titles/attributes — cite by video id):" ]
       examples.each do |ex|

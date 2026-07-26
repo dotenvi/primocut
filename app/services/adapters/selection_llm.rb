@@ -1,14 +1,14 @@
 require "tempfile"
 
 module Adapters
-  # The LLM seam for opt-in AI enrichment. A single `select` forces a deterministic
+  # The LLM seam for opt-in AI analysis. A single `select` forces a deterministic
   # structured extraction and returns the parsed attributes Hash — the model fills a
   # JSON Schema, nothing more. Provider-agnostic via RubyLLM (Anthropic by default,
   # swappable by config), mirroring the PoC `analysis/llm.py::SelectionLLM`. The chat
   # factory is injectable so tests run with no network.
   #
   # Determinism: temperature 0 and a forced schema make the output a clean function
-  # of the prompt, so the content-hash cache in [[Enrichment::VideoEnricher]] is
+  # of the prompt, so the content-hash cache in [[Competitors::VideoAnalysis]] is
   # honest. `claude-opus-4-8` is newer than RubyLLM's bundled model registry, so
   # `assume_model_exists: true` skips its validation.
   class SelectionLlm

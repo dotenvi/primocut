@@ -1,5 +1,5 @@
-module Enrichment
-  # Opt-in AI enrichment of one competitor video's `kind` (costs an LLM call).
+module Competitors
+  # Opt-in AI analysis of one competitor video's `kind` (costs an LLM call).
   # NEVER runs on a schedule — only from an explicit user action. Every result is
   # keyed by a **content hash** so it is paid for once and shared across every
   # project that tracks the channel: a re-run whose content is unchanged is a free
@@ -7,24 +7,25 @@ module Enrichment
   # the snapshot cycle already maintains (so the cache gate costs no network — bytes
   # are fetched only once the hash says the work is due); `comments` → SHA-256 of the
   # collected comment set. Ported from the PoC `metrics/enrichment.py`. See
-  # [[Adapters::SelectionLlm]] and [[Enrichment::Comments]].
+  # [[Adapters::SelectionLlm]] and [[Competitors::CommentSynthesis]].
   #
-  # The packaging kinds store raw output + code-derived [[Enrichment::Facets]] in
+  # The packaging kinds store raw output + code-derived [[Competitors::PackagingFacets]] in
   # `video_attributes`; the comment synthesis lands in `video_enrichments` (a
   # narrative, not a packaging pattern). Resilience: a per-video failure is logged,
   # recorded on the row as `state: "error"` with the message the UI renders, and the
   # content hash is cleared so the next explicit click retries. Only an unknown
   # `kind` or a misused `regenerate` raises (a caller bug, not a per-video failure).
-  class VideoEnricher
+  class VideoAnalysis
     # kind → the storage key its result is written under. Grows per slice.
-    KINDS = { "title" => "title_llm", "thumbnail" => "thumbnail_llm", "comments" => Comments::KIND }.freeze
+    KINDS = { "title" => "title_llm", "thumbnail" => "thumbnail_llm", "comments" => CommentSynthesis::KIND }.freeze
 
     class UnknownKind < ArgumentError; end
+    class UnknownVideo < StandardError; end
     class RegenerateNotAllowed < ArgumentError; end
     # The content cannot be hashed yet (a thumbnail whose bytes never downloaded, a
     # video whose comments were never collected), so there is nothing to key the
     # cache on — refuse rather than recharge every click.
-    class NotEnrichable < StandardError; end
+    class NotAnalyzable < StandardError; end
 
     Plan = Data.define(:kind, :source, :content_hash, :title, :thumbnail_url, :comments)
 
@@ -39,7 +40,26 @@ module Enrichment
       @comment_recollector = comment_recollector || DEFAULT_RECOLLECTOR
     end
 
-    # Enrich one video, skipping whatever the cache covers. Returns :enriched,
+    # The storage key a kind writes under, and the whitelist itself: a caller that
+    # only needs to reject a bogus kind should not have to build an analyzer or
+    # reach a video to find out.
+    def self.source_for(kind)
+      KINDS.fetch(kind) { raise UnknownKind, "unknown analysis kind: #{kind.inspect} (use #{KINDS.keys.inspect})" }
+    end
+
+    # The cache gate asked without spending anything: the Plan the next run would
+    # execute, or nil when the content hash is unchanged and a re-run would be
+    # free. This is the very same gate `call` uses, so a cost shown before the
+    # click cannot disagree with what the click then does.
+    def plan(youtube_video_id, kind: "title")
+      source = source_for(kind)
+      video = CompetitorVideo.find_by(youtube_video_id:)
+      raise UnknownVideo, "unknown video #{youtube_video_id.inspect}" if video.nil?
+
+      plan_for(video, kind, source)
+    end
+
+    # Analyze one video, skipping whatever the cache covers. Returns :analyzed,
     # :cached, or :failed. Never raises for a per-video failure.
     def call(youtube_video_id, kind: "title", regenerate: false)
       source = source_for(kind)
@@ -47,7 +67,7 @@ module Enrichment
 
       video = CompetitorVideo.find_by(youtube_video_id:)
       if video.nil?
-        Rails.logger.error("enrichment: unknown video #{youtube_video_id.inspect}")
+        Rails.logger.error("analysis: unknown video #{youtube_video_id.inspect}")
         return :failed
       end
 
@@ -57,22 +77,20 @@ module Enrichment
 
       mark_running(video, source)
       save(video, plan, run(plan))
-      :enriched
+      :analyzed
     rescue UnknownKind, RegenerateNotAllowed
       raise
     rescue StandardError => e
-      Rails.logger.error("enrichment: video #{youtube_video_id} (#{kind}) failed: #{e.message}")
+      Rails.logger.error("analysis: video #{youtube_video_id} (#{kind}) failed: #{e.message}")
       mark_error(video, source, e.message) if video
       :failed
     end
 
     private
 
-    def source_for(kind)
-      KINDS.fetch(kind) { raise UnknownKind, "unknown enrichment kind: #{kind.inspect} (use #{KINDS.keys.inspect})" }
-    end
+    def source_for(kind) = self.class.source_for(kind)
 
-    def synthesis?(source) = source == Comments::KIND
+    def synthesis?(source) = source == CommentSynthesis::KIND
 
     # A due plan, or nil when the cache already covers the current content.
     def plan_for(video, kind, source)
@@ -90,9 +108,9 @@ module Enrichment
         Metrics::Attributes.title_content_hash(video.title)
       when "thumbnail"
         video.thumbnail_hash.presence ||
-          raise(NotEnrichable, "thumbnail bytes have not been hashed for this video yet — run a snapshot cycle first")
+          raise(NotAnalyzable, "thumbnail bytes have not been hashed for this video yet — run a snapshot cycle first")
       when "comments"
-        Comments.content_hash(comments)
+        CommentSynthesis.content_hash(comments)
       end
     end
 
@@ -100,7 +118,7 @@ module Enrichment
     # synthesise, saying why so the UI can render the reason verbatim.
     def load_comments(video)
       comments = video.video_comments.order(like_count: :desc, comment_id: :asc).to_a
-      raise NotEnrichable, no_comments_reason(video) if comments.empty?
+      raise NotAnalyzable, no_comments_reason(video) if comments.empty?
 
       comments
     end
@@ -118,30 +136,30 @@ module Enrichment
     def run(plan)
       case plan.kind
       when "title"
-        @llm.select(system: Prompts::TITLE_SYSTEM, user: "Video title: #{plan.title}", schema: Prompts::TITLE_SCHEMA)
+        @llm.select(system: AnalysisPrompts::TITLE_SYSTEM, user: "Video title: #{plan.title}", schema: AnalysisPrompts::TITLE_SCHEMA)
       when "thumbnail"
         @llm.select(
-          system: Prompts::THUMBNAIL_SYSTEM, user: "Analyse this YouTube thumbnail.",
-          schema: Prompts::THUMBNAIL_SCHEMA, image: @thumbnail_fetcher.call(plan.thumbnail_url)
+          system: AnalysisPrompts::THUMBNAIL_SYSTEM, user: "Analyse this YouTube thumbnail.",
+          schema: AnalysisPrompts::THUMBNAIL_SCHEMA, image: @thumbnail_fetcher.call(plan.thumbnail_url)
         )
       when "comments"
         @llm.select(
-          system: Prompts::COMMENT_SYNTHESIS_SYSTEM, user: Comments.build_user_prompt(plan.title, plan.comments),
-          schema: Prompts::COMMENT_SYNTHESIS_SCHEMA
+          system: AnalysisPrompts::COMMENT_SYNTHESIS_SYSTEM, user: CommentSynthesis.build_user_prompt(plan.title, plan.comments),
+          schema: AnalysisPrompts::COMMENT_SYNTHESIS_SCHEMA
         )
       end
     end
 
     def save(video, plan, raw)
       if synthesis?(plan.source)
-        row_for(video, plan.source).update!(payload: Comments.build_payload(raw, plan.comments), content_hash: plan.content_hash, state: "done", error: "")
+        row_for(video, plan.source).update!(payload: CommentSynthesis.build_payload(raw, plan.comments), content_hash: plan.content_hash, state: "done", error: "")
       else
         row_for(video, plan.source).update!(attrs: raw.merge(facets_for(plan.kind, raw)), content_hash: plan.content_hash, state: "done", error: "")
       end
     end
 
     def facets_for(kind, raw)
-      kind == "title" ? Facets.title(raw) : Facets.thumbnail(raw)
+      kind == "title" ? PackagingFacets.title(raw) : PackagingFacets.thumbnail(raw)
     end
 
     def existing_row(video, source)
@@ -161,7 +179,7 @@ module Enrichment
     def mark_error(video, source, message)
       row_for(video, source).update!(state: "error", error: message, content_hash: "")
     rescue StandardError => e # a video we cannot even flag must not abort the batch
-      Rails.logger.error("enrichment: could not record the failure of #{video.youtube_video_id}: #{e.message}")
+      Rails.logger.error("analysis: could not record the failure of #{video.youtube_video_id}: #{e.message}")
     end
   end
 end

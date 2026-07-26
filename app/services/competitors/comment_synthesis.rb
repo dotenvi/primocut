@@ -1,7 +1,7 @@
 require "digest"
 require "set"
 
-module Enrichment
+module Competitors
   # Comment synthesis: the content hash, the indexed prompt, quote resolution and
   # the project-level aggregation of what the audience asked for. Ported from the
   # PoC `metrics/comments.py`. Two rules shape it:
@@ -17,7 +17,7 @@ module Enrichment
   # The result is persisted in `video_enrichments` (kind `comment_synthesis`), not
   # `video_attributes`: a narrative synthesis has no business being counted as a
   # packaging pattern by `Metrics::Patterns`.
-  module Comments
+  module CommentSynthesis
     KIND = "comment_synthesis".freeze
 
     # Per-comment cap in the prompt — the tail is rarely the point, and this bounds

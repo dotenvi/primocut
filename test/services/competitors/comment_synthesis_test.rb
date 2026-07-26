@@ -4,8 +4,8 @@ require "test_helper"
 # spelling-normalising request key, the clamped quote resolution (the model returns
 # an index, never text), the defensive payload build, and the project-level request
 # aggregation. Ported from the PoC `tests/test_comments.py`.
-class Enrichment::CommentsTest < ActiveSupport::TestCase
-  C = Enrichment::Comments
+class Competitors::CommentSynthesisTest < ActiveSupport::TestCase
+  C = Competitors::CommentSynthesis
   Comment = Struct.new(:comment_id, :text, :like_count, :author, keyword_init: true)
 
   def comments
