@@ -30,8 +30,22 @@ compatibility that does not exist.
   screen, at the feed page, filter and format you left it on; reached any other
   way, or directly, the link still walks up the hierarchy to the channel.
 
+- The Activity log now reads as a log: each row names the job, the subject it
+  acted on, the API quota it spent and whether it succeeded, under a day
+  separator, with the total quota accounted in the header. It pages backwards
+  through the whole history instead of stopping at the newest hundred.
+
 ### Fixed
 
+- Tables render with the design system's rules and column headers again. The
+  port dropped the `td`/`th` styling, so every table in the app (Niche, Channels,
+  Activity) fell back to the browser's bare cells.
+- The Activity quota read "—" while the cycle events it is summed from were
+  already in the log. The sidebar reads the same accounting against the budget it
+  resets to, over the API's quota day — which turns over at midnight Pacific, not
+  at the app's midnight, and is the only window in which "used / budget" means
+  anything.
+- The sidebar stopped issuing one channel COUNT per project on every page render.
 - Radar cards no longer render as empty rows. They read `payload["title"]`, which
   no event has ever carried — titles, channels and thumbnails are resolved from
   the subjects the event references.
