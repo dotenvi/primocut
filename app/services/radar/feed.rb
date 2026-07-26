@@ -17,7 +17,7 @@ module Radar
     end
 
     def call
-      unseen, seen = Row.build(events).partition { |row| !row.seen? }
+      unseen, seen = Events::Row.build(events).partition { |row| !row.seen? }
       Result.new(unseen: unseen, seen: seen)
     end
 

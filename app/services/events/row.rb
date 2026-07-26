@@ -1,5 +1,8 @@
-module Radar
-  # One Radar feed row: an event plus the subjects it soft-references.
+module Events
+  # One row of the event log: an event plus the subjects it soft-references.
+  # Shared by every screen that renders events — the Radar feed, its ops alerts
+  # and the Activity log — exactly as the PoC serves all three from one
+  # `_serialise`.
   #
   # Events carry nullable bigint soft-refs (no FK, no `belongs_to`) so a recorded
   # fact outlives the deletion of its subject — which means the feed has to

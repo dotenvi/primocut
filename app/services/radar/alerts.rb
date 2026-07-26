@@ -10,7 +10,7 @@ module Radar
     end
 
     def call
-      Row.build(
+      Events::Row.build(
         Event.category_ops.where(resolved_at: nil)
              .order(occurred_at: :desc, id: :desc).limit(@limit)
       )
