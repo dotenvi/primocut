@@ -42,7 +42,10 @@ class RadarActivityScreenTest < ActionDispatch::IntegrationTest
     crossing
 
     get root_path
-    assert_select "a.ev[href=?]", project_niche_channel_video_path(@project, "UC_solo", "vid1")
+    # The link carries where it was clicked from, so the video screen can offer
+    # the way back to the feed instead of stranding the user on the channel.
+    assert_select "a.ev[href=?]",
+      project_niche_channel_video_path(@project, "UC_solo", "vid1", from: "radar")
   end
 
   test "an event whose video is gone still renders, without a link" do
