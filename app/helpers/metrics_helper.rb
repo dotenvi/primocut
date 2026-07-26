@@ -18,6 +18,11 @@ module MetricsHelper
     ""
   end
 
+  # Clock time (HH:MM) for a log row, in the app's zone. "" for nil.
+  def hhmm(time)
+    time&.strftime("%H:%M").to_s
+  end
+
   # The histogram bucket index a view count falls into, given the bucket edges, or
   # nil when it cannot be placed. Used to mark a video on the channel spread strip.
   def spread_bucket_index(views, edges)

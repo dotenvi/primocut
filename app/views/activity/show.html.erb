@@ -1,26 +1,55 @@
 <% content_for :title, "Activity — Primocut" %>
 
 <div class="flex items-end justify-between gap-3 mb-5">
-  <div><div class="eyebrow">Global</div><h1>Activity</h1></div>
-  <div class="m">YouTube API quota <span class="text-ok"><%= @quota ? compact_number(@quota) : "—" %></span></div>
+  <div><div class="eyebrow">System</div><h1>Activity</h1></div>
+  <div class="m"><%= number_with_delimiter(@log.quota_units) %> quota units accounted</div>
 </div>
 
-<% if @events.empty? %>
-  <div class="card max-w-[560px]">
-    <p class="text-ink-2 m-0">No activity yet. The log fills as collection runs.</p>
+<% if @log.rows.empty? %>
+  <div class="border border-line rounded-card py-10 text-center bg-panel">
+    <p class="text-ink-2 m-0">
+      <%= params[:before_id].present? ? "Nothing older than this." : "No activity recorded yet." %>
+    </p>
+    <p class="m mt-2">The log fills as the snapshot cycle and the pipeline run.</p>
   </div>
 <% else %>
   <table class="w-full border-collapse text-[13px]">
-    <thead><tr><th>When</th><th>Category</th><th>Event</th><th>Severity</th></tr></thead>
+    <thead><tr>
+      <th class="w-16 text-right">Time</th><th>Job</th><th>Scope</th>
+      <th class="text-right">Quota</th><th class="text-right">Result</th>
+    </tr></thead>
     <tbody>
-      <% @events.each do |e| %>
+      <% day = nil %>
+      <% @log.rows.each do |row| %>
+        <% if row.occurred_at.to_date != day %>
+          <% day = row.occurred_at.to_date %>
+          <tr><td colspan="5" class="border-t-0 pt-4 pb-1"><span class="lbl"><%= day_label(row.occurred_at) %></span></td></tr>
+        <% end %>
         <tr class="hover:bg-[#15181C]">
-          <td class="text-ink-2"><%= time_ago_in_words(e.occurred_at) %> ago</td>
-          <td><%= e.category %></td>
-          <td class="font-mono text-[12px]"><%= e.event_type %></td>
-          <td><%= e.severity == "error" ? content_tag(:span, "error", class: "tag bg-err-bg text-err border-err-line") : e.severity %></td>
+          <td class="text-right font-mono text-[12px] text-ink-2"><%= hhmm(row.occurred_at) %></td>
+          <td><%= row.event_type.tr("_", " ") %></td>
+          <td class="text-ink-2 truncate max-w-[360px]"><%= activity_scope(row) %></td>
+          <% quota = activity_quota(row) %>
+          <td class="text-right font-mono text-[12px] <%= "text-ink-3" if quota.nil? %>"><%= quota || "—" %></td>
+          <td class="text-right"><%= activity_result_tag(row) %></td>
         </tr>
       <% end %>
     </tbody>
   </table>
 <% end %>
+
+<%# Cursor paging: the log only grows at the head, so an offset page would shift
+    under the reader between requests. "Newest" drops the cursor rather than
+    walking back one page, which a descending-id cursor cannot do. %>
+<div class="flex items-center justify-between gap-3 mt-4">
+  <div>
+    <% if params[:before_id].present? %>
+      <%= link_to "‹ Newest", activity_path, class: "btn no-underline" %>
+    <% end %>
+  </div>
+  <div>
+    <% if @log.next_before_id %>
+      <%= link_to "Older ›", activity_path(before_id: @log.next_before_id), class: "btn no-underline" %>
+    <% end %>
+  </div>
+</div>
