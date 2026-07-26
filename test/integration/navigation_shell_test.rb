@@ -45,6 +45,18 @@ class NavigationShellTest < ActionDispatch::IntegrationTest
     assert_select "h1", text: "Settings"
   end
 
+  test "the sidebar reads today's quota against the daily budget" do
+    Event.create!(category: "ops", event_type: "cycle_done", occurred_at: 10.minutes.ago,
+      payload: { "quota_units" => 240 })
+    Event.create!(category: "ops", event_type: "cycle_done", occurred_at: 3.days.ago,
+      payload: { "quota_units" => 9_000 })
+
+    get root_path
+    assert_response :success
+    # Yesterday's spend is not today's: the API budget resets daily.
+    assert_select "aside span.text-ok", text: /240 \/ 10,000/
+  end
+
   test "an unknown project is not found" do
     get project_niche_path(project_id: 0)
     assert_response :not_found
