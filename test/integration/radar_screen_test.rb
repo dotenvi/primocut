@@ -1,9 +1,9 @@
 require "test_helper"
 
-# The global Radar (niche event feed, unseen/seen split, project filter) and
-# Activity (full log) screens. A niche event carries a channel, never a project,
-# so the feed has to resolve titles, badges and links on read.
-class RadarActivityScreenTest < ActionDispatch::IntegrationTest
+# The global Radar: the niche event feed, its unseen/seen split and its project
+# filter. A niche event carries a channel, never a project, so the feed has to
+# resolve titles, badges and links on read.
+class RadarScreenTest < ActionDispatch::IntegrationTest
   setup do
     @project = Project.create!(name: "Chess")
     @channel = CompetitorChannel.create!(youtube_channel_id: "UC_solo", title: "Solo", handle: "@solo")
@@ -117,15 +117,5 @@ class RadarActivityScreenTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select ".lbl.text-err", text: "Needs you · 1"
     assert_select "span", text: "ffmpeg exited 1"
-  end
-
-  test "activity lists the log and shows an unknown quota" do
-    Event.create!(category: "ops", event_type: "quota_exhausted", severity: "error", occurred_at: 1.hour.ago)
-
-    get activity_path
-    assert_response :success
-    assert_select "h1", text: "Activity"
-    assert_select "td.font-mono", text: "quota_exhausted"
-    assert_select "span.text-ok", text: "—" # quota tracking is Phase 3
   end
 end
