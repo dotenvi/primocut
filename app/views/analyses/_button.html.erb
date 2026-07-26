@@ -1,0 +1,11 @@
+<%#
+  One priced analysis button. Lives in its own frame because the price is the
+  expensive part: it scores the project to know which videos are settled, and the
+  Patterns tab must render without waiting for that.
+  Locals: plan (a Competitors::AnalysisPlan::Result).
+%>
+<%= turbo_frame_tag "analysis_#{plan.kind}" do %>
+  <%= button_to analysis_label(plan), project_niche_analysis_path(@project, kind: plan.kind),
+        method: :post, class: "btn btn-ai", disabled: plan.total.zero?,
+        form: { data: { turbo_frame: "_top" } } %>
+<% end %>
