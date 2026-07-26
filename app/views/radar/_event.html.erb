@@ -1,7 +1,41 @@
-<%# One Radar feed row. Rich per-type rendering (distribution strip, band evidence)
-    refines in Phase 3 once the event types are emitted; this is the generic form. %>
-<div class="ev <%= "seen" if local_assigns[:seen] %>">
-  <span class="tag bg-card2 text-ink-2 border-line-strong"><%= event.event_type.humanize %></span>
-  <span class="flex-1"><%= event.payload["title"].presence || event.payload["message"].presence || "—" %></span>
-  <span class="m text-ink-3"><%= time_ago_in_words(event.occurred_at) %> ago</span>
-</div>
+<%#
+  One "New" Radar card: the video's packaging (thumbnail), its band tag, the
+  project badges of the channel that published it, the title, the metric line and
+  the channel-spread strip. The whole card opens the video inside a project that
+  tracks its channel; an event whose subject is gone renders as a plain card.
+  Locals: event (a Radar::Row), spread, project (the active filter, may be nil).
+%>
+<% badge = event_tag(event) %>
+<% distribution = spread[[ event.channel&.id, event.video_format ]] %>
+<% target = event.linkable?(project) &&
+     project_niche_channel_video_path(event.project_for(project),
+       event.channel.youtube_channel_id, event.video.youtube_video_id) %>
+
+<%= content_tag(target ? :a : :div, href: target || nil,
+      class: class_names("ev", "no-underline text-ink" => target, "cursor-default" => !target)) do %>
+  <div class="w-[78px] h-11 rounded-[3px] bg-sunk border border-line shrink-0 grid place-items-center overflow-hidden font-mono text-[8px] text-ink-3">
+    <% if event.thumbnail_url %>
+      <%= image_tag event.thumbnail_url, alt: "", loading: "lazy", class: "w-full h-full object-cover" %>
+    <% else %>
+      thumb
+    <% end %>
+  </div>
+
+  <div class="flex-1 min-w-0">
+    <div class="flex items-center gap-2 flex-wrap">
+      <span class="tag <%= badge.css %>"><%= badge.text %></span>
+      <% event.projects.each do |p| %>
+        <span class="tag bg-card2 text-ink-2 border-line-strong"><%= p.name %></span>
+      <% end %>
+      <span class="m"><%= [ event.channel_title, "#{time_ago_in_words(event.occurred_at)} ago" ].compact.join(" · ") %></span>
+    </div>
+    <div class="text-[13px] my-1 leading-snug truncate"><%= event.title %></div>
+    <% meta = event_meta(event) %>
+    <% if meta.present? %><div class="m"><%= meta %></div><% end %>
+  </div>
+
+  <% if distribution %>
+    <%= render "shared/spread_strip", buckets: distribution[:buckets], edges: distribution[:bucket_edges],
+          views: event.views, height: 24, label: "CHANNEL SPREAD" %>
+  <% end %>
+<% end %>

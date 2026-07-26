@@ -1,0 +1,25 @@
+<%#
+  The pager for one feed. Renders nothing for a single page; an edge arrow is a
+  dimmed span rather than a link, so there is never a dead click.
+  Locals: page (a Radar::Page), page_key (:new_page | :seen_page), pages (both
+  feeds' current pages, so paging one never resets the other).
+%>
+<% if page.paged? %>
+  <div class="flex items-center gap-2 text-ink-3">
+    <% if page.current > 1 %>
+      <%= link_to "‹", radar_path(**pages.merge(page_key => page.current - 1)),
+            class: "px-1 leading-none no-underline hover:text-ink", "aria-label": "Previous page" %>
+    <% else %>
+      <span class="px-1 leading-none opacity-30" aria-hidden="true">‹</span>
+    <% end %>
+
+    <span class="m tabular-nums"><%= page.current %> / <%= page.total_pages %></span>
+
+    <% if page.current < page.total_pages %>
+      <%= link_to "›", radar_path(**pages.merge(page_key => page.current + 1)),
+            class: "px-1 leading-none no-underline hover:text-ink", "aria-label": "Next page" %>
+    <% else %>
+      <span class="px-1 leading-none opacity-30" aria-hidden="true">›</span>
+    <% end %>
+  </div>
+<% end %>

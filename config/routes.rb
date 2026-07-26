@@ -11,6 +11,7 @@ Rails.application.routes.draw do
 
   # Global navigation (cross-project) — the IA's top level.
   root "radar#show"
+  post "radar/seen", to: "radar#mark_seen", as: :radar_seen
   get "activity", to: "activity#show"
 
   # Per-project navigation. Real content lands in Phase 2; these render shell

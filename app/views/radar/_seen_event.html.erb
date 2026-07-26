@@ -1,0 +1,16 @@
+<%#
+  One "Earlier · seen" row: the compact form of a Radar card — abbreviated band
+  tag, title, channel — still clickable through to the video.
+  Locals: event (a Radar::Row), project (the active filter, may be nil).
+%>
+<% badge = event_tag(event) %>
+<% target = event.linkable?(project) &&
+     project_niche_channel_video_path(event.project_for(project),
+       event.channel.youtube_channel_id, event.video.youtube_video_id) %>
+
+<%= content_tag(target ? :a : :div, href: target || nil,
+      class: class_names("ev seen", "no-underline" => target, "cursor-default" => !target)) do %>
+  <span class="tag <%= badge.css %>"><%= badge.abbr %></span>
+  <span class="flex-1 truncate text-ink-2 text-[12.5px]"><%= event.title %></span>
+  <span class="m shrink-0"><%= event.channel_title || event.projects.first&.name %></span>
+<% end %>

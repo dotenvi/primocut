@@ -1,30 +1,68 @@
 <% content_for :title, "Radar — Primocut" %>
+<% pages = { project: @radar.project, new_page: @radar.unseen.current, seen_page: @radar.seen.current } %>
 
 <div class="flex items-end justify-between gap-3 mb-5">
-  <div><div class="eyebrow">Global</div><h1>Radar</h1></div>
+  <div>
+    <div class="eyebrow"><%= @radar.project ? @radar.project.name : "All niches" %></div>
+    <h1>Radar</h1>
+  </div>
+  <% if @radar.unseen.total_count.positive? %>
+    <%= button_to "Mark all as seen", radar_seen_path(project_id: @radar.project&.id), class: "btn" %>
+  <% end %>
 </div>
 
-<% if @projects.any? %>
-  <div class="flex gap-1.5 mb-5 flex-wrap">
-    <%= link_to "All", root_path, class: class_names("chip no-underline", "on" => @project.nil?) %>
-    <% @projects.each do |p| %>
-      <%= link_to p.name, root_path(project_id: p.id),
-            class: class_names("chip no-underline", "on" => @project&.id == p.id) %>
+<%# Operational failures come first: they are the only rows that ask for an action. %>
+<% if @radar.alerts.any? %>
+  <div class="border border-err-line bg-err-bg rounded-card px-3.5 py-2.5 mb-6">
+    <div class="flex items-center justify-between mb-1">
+      <span class="lbl text-err">Needs you · <%= @radar.alerts.size %></span>
+      <%= link_to "View all activity →", activity_path, class: "m text-[10px] hover:text-ink no-underline" %>
+    </div>
+    <% @radar.alerts.each do |alert| %>
+      <div class="flex items-center gap-2.5 py-1.5 border-t border-[#331B1D] first:border-t-0">
+        <span class="w-1.5 h-1.5 rounded-full bg-err shrink-0"></span>
+        <span class="flex-1 truncate"><%= alert.title %></span>
+        <span class="m shrink-0"><%= event_meta(alert).presence || alert.channel_title || "#{time_ago_in_words(alert.occurred_at)} ago" %></span>
+      </div>
     <% end %>
   </div>
 <% end %>
 
-<% if @unseen.empty? && @seen.empty? %>
-  <div class="card max-w-[560px]">
-    <p class="text-ink-2 m-0">Nothing on the radar yet. Outlier crossings and niche alerts appear here as the competitor snapshot cycle runs.</p>
+<div class="flex gap-1.5 mb-5 flex-wrap">
+  <%= link_to "All", radar_path, class: class_names("chip no-underline", "on" => @radar.project.nil?) %>
+  <% @radar.projects.each do |p| %>
+    <%= link_to p.name, radar_path(project: p),
+          class: class_names("chip no-underline", "on" => @radar.project&.id == p.id) %>
+  <% end %>
+</div>
+
+<% if @radar.unseen.total_count.zero? && @radar.seen.total_count.zero? %>
+  <div class="border border-line rounded-card py-10 text-center bg-panel">
+    <p class="text-ink-2 m-0">Nothing on the radar<%= " for #{@radar.project.name}" if @radar.project %> yet.</p>
+    <p class="m mt-2">
+      <% if @radar.projects.any? %>
+        Radar fills as the snapshot cycle detects outliers, packaging changes and resurgences.
+      <% else %>
+        Create a project to start tracking a niche.
+      <% end %>
+    </p>
   </div>
 <% else %>
-  <% if @unseen.any? %>
-    <div class="lbl mb-2">New</div>
-    <%= render partial: "event", collection: @unseen, as: :event %>
+  <% if @radar.unseen.any? %>
+    <div class="flex items-center justify-between gap-3 mb-2">
+      <div class="lbl">New · <%= @radar.unseen.total_count %></div>
+      <%= render "pager", page: @radar.unseen, page_key: :new_page, pages: pages %>
+    </div>
+    <%= render partial: "event", collection: @radar.unseen.rows, as: :event,
+          locals: { spread: @radar.spread, project: @radar.project } %>
   <% end %>
-  <% if @seen.any? %>
-    <div class="lbl mt-6 mb-2">Earlier</div>
-    <%= render partial: "event", collection: @seen, as: :event, locals: { seen: true } %>
+
+  <% if @radar.seen.any? %>
+    <div class="flex items-center justify-between gap-3 mt-6 mb-2">
+      <div class="lbl">Earlier · seen · <%= @radar.seen.total_count %></div>
+      <%= render "pager", page: @radar.seen, page_key: :seen_page, pages: pages %>
+    </div>
+    <%= render partial: "seen_event", collection: @radar.seen.rows, as: :event,
+          locals: { project: @radar.project } %>
   <% end %>
 <% end %>
