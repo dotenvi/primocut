@@ -1,0 +1,17 @@
+# Python transcription sidecar (primocut_engine.py) — the only Python the Rails
+# app drives, and the only place these packages may live. Build the venv with:
+#
+#   python3 -m venv sidecar/.venv
+#   sidecar/.venv/bin/pip install -r sidecar/requirements.txt
+#
+# then point ENGINE_CMD at `sidecar/.venv/bin/python sidecar/primocut_engine.py`.
+# Pinned to the set verified on WSL2 + RTX 3070 Ti (docs §5.2).
+
+faster-whisper==1.2.1
+
+# The CUDA runtime libs arrive via pip under the `nvidia` namespace — the driver
+# itself lives on Windows and reaches WSL2 through /usr/lib/wsl/lib. These two are
+# what `_preload_cuda_libs()` loads RTLD_GLOBAL so ctranslate2 resolves
+# libcublas.so.12 / libcudnn*.so by soname. Without them the GPU is unreachable.
+nvidia-cublas-cu12==12.9.2.10
+nvidia-cudnn-cu12==9.24.0.43

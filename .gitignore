@@ -37,7 +37,7 @@
 /.claude/
 
 # Python GPU sidecar: its own venv and bytecode never belong in the repo.
-/engine/.venv/
+/sidecar/.venv/
 __pycache__/
 *.pyc
 

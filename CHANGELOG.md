@@ -57,6 +57,12 @@ compatibility that does not exist.
   separator, with the total quota accounted in the header. It pages backwards
   through the whole history instead of stopping at the newest hundred.
 
+- The transcription sidecar carries its own `sidecar/requirements.txt`, pinned to
+  the package set verified on the GPU box, plus the command that builds the venv
+  from it. Nothing in the repository recorded what that environment needs, so the
+  only way to run the sidecar was to borrow a Python environment from outside the
+  project; it is now buildable from the repository alone.
+
 ### Changed
 
 - The opt-in AI pass over a competitor's video is called **analysis**, not
@@ -92,6 +98,13 @@ compatibility that does not exist.
   works. The probe encoded a frame too small for NVENC on ffmpeg 7.x (rejected with
   "-22 Invalid argument"), producing a false negative; it now encodes a valid tiny
   clip.
+- `.gitignore` excluded `/engine/.venv/`, a path that does not exist — the sidecar
+  lives in `sidecar/`. Its venv, gigabytes of CUDA wheels, was never actually
+  ignored.
+- `.env.example` never listed `ANTHROPIC_API_KEY`, the variable
+  `config/initializers/ruby_llm.rb` reads. `rake primocut:doctor` answered a
+  missing key with "copy .env.example to .env and fill in ANTHROPIC_API_KEY" — an
+  instruction the file made impossible to follow.
 
 ## [0.5.0] - 2026-07-25
 
