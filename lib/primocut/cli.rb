@@ -1,6 +1,7 @@
 require "thor"
 require "json"
 require "tmpdir"
+require_relative "console_reporter"
 
 module Primocut
   # The `bin/primocut` command line — the testing workflows driven from the
@@ -29,8 +30,10 @@ module Primocut
       source_video.assign_attributes(url:, status: "queued")
       source_video.save!
 
+      reporter = ConsoleReporter.new
       Dir.mktmpdir("primocut-cli-") do |audio_dir|
-        result = Pipeline::Runner.new.call(source_video, reporter: Pipeline::LogReporter.new, audio_dir:)
+        result = Pipeline::Runner.new.call(source_video, reporter:, audio_dir:)
+        reporter.close # settle the live line before the summary prints under it
         say "Done #{source_video.youtube_id}: #{result.transcript.segments.size} segment(s), " \
             "#{result.chat_signal&.peaks&.size || 0} chat peak(s).", :green
         result.warnings.each { |w| say "  warn: #{w}", :yellow }
@@ -41,15 +44,19 @@ module Primocut
       abort_with "Invalid URL: #{e.message}"
     rescue Pipeline::Error => e
       abort_with "Essential stage failed: #{e.message}"
+    ensure
+      reporter&.close # an abort must never leave a half-drawn line behind
     end
 
     desc "snapshot", "Run one competitor snapshot cycle inline (no scheduler/worker)"
     option :scope, type: :string, default: "all", desc: "all | recent (< recent_days)"
     option :channel, aliases: "-c", type: :string, desc: "Limit to a single channel ID (UC…)"
     def snapshot
+      reporter = ConsoleReporter.new
       result = Competitors::SnapshotCycle
-               .new(client: Adapters::YoutubeApi.from_env)
+               .new(client: Adapters::YoutubeApi.from_env, reporter:)
                .call(scope: options[:scope], channel_id: options[:channel])
+      reporter.close # settle the live line before the summary prints under it
       say "Snapshot (#{result[:scope]}) done: #{result[:channels]} channel(s), " \
           "#{result[:videos]} video(s), #{result[:packaging_changes]} packaging change(s), " \
           "#{result[:comments]} comment set(s), #{result[:quota_units]} quota unit(s).", :green
@@ -57,6 +64,8 @@ module Primocut
       abort_with e.message
     rescue Adapters::YoutubeApi::Error => e
       abort_with "Snapshot failed: #{e.message}"
+    ensure
+      reporter&.close # an abort must never leave a half-drawn line behind
     end
 
     desc "metrics", "Print a dashboard payload as JSON (for numeric parity vs. the PoC)"

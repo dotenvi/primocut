@@ -59,6 +59,24 @@ class Competitors::SnapshotCycleTest < ActiveSupport::TestCase
     def call(url) = @content.fetch(url, url)
   end
 
+  # Records what the cycle reported, so the phase trail can be asserted without
+  # a terminal.
+  class RecordingReporter
+    attr_reader :updates, :warnings
+
+    def initialize
+      @updates = []
+      @warnings = []
+    end
+
+    def update(stage:, progress:, detail: nil, **) = @updates << { stage:, progress:, detail: }
+    def warn(message) = @warnings << message
+    def close = nil
+
+    def stages = @updates.map { |u| u[:stage] }.chunk_while { |a, b| a == b }.map(&:first)
+    def details = @updates.filter_map { |u| u[:detail] }
+  end
+
   def h(data) = Digest::SHA256.hexdigest(data)
 
   def vinfo(vid, title: "T", thumb: "", views: 100, likes: 10, comments: 1, published: nil)
@@ -289,5 +307,69 @@ class Competitors::SnapshotCycleTest < ActiveSupport::TestCase
 
   test "rejects an unknown scope" do
     assert_raises(ArgumentError) { run_cycle("weekly", FakeYouTube.new) }
+  end
+
+  # ------------------------- progress reporting -------------------------
+
+  test "reports every phase in order, ending at 100" do
+    ch = seed_channel
+    seed_video(ch, "v1", title: "One", published_at: NOW - 2.days)
+    yt = FakeYouTube.new
+    yt.videos = { "v1" => vinfo("v1", title: "One") }
+    reporter = RecordingReporter.new
+
+    Competitors::SnapshotCycle.new(client: yt, thumbnail_fetcher: FakeThumbs.new, reporter:).call(scope: "all", now: NOW)
+
+    assert_equal [ "Channels", "Metrics artifacts", "Outlier events", "Comments", "Done" ], reporter.stages
+    assert_equal 100, reporter.updates.last[:progress]
+  end
+
+  test "progress never goes backwards" do
+    yt = FakeYouTube.new
+    3.times do |i|
+      ch = seed_channel("UC#{i}")
+      seed_video(ch, "v#{i}", title: "V#{i}", published_at: NOW - 2.days)
+      yt.videos["v#{i}"] = vinfo("v#{i}", title: "V#{i}")
+    end
+    reporter = RecordingReporter.new
+
+    Competitors::SnapshotCycle.new(client: yt, thumbnail_fetcher: FakeThumbs.new, reporter:).call(scope: "all", now: NOW)
+
+    progresses = reporter.updates.map { |u| u[:progress] }
+    assert_equal progresses.sort, progresses
+    assert_operator progresses.max, :<=, 100
+  end
+
+  test "the channel phase names the sub-step it is on, including per-thumbnail work" do
+    ch = seed_channel
+    seed_video(ch, "v1", title: "One", published_at: NOW - 2.days)
+    seed_video(ch, "v2", title: "Two", published_at: NOW - 2.days)
+    yt = FakeYouTube.new
+    yt.videos = { "v1" => vinfo("v1", title: "One"), "v2" => vinfo("v2", title: "Two") }
+    reporter = RecordingReporter.new
+
+    Competitors::SnapshotCycle.new(client: yt, thumbnail_fetcher: FakeThumbs.new, reporter:).call(scope: "all", now: NOW)
+
+    details = reporter.details.join("\n")
+    assert_match(/1\/1 .*stats/, details)
+    assert_match(/thumbs 2\/2/, details) # the slowest stretch counts item by item
+    assert_match(/saving/, details)
+    assert_match(/quota/, details) # spend is visible as it accrues, not only at the end
+  end
+
+  test "a channel failure is warned to the operator, not only to the log" do
+    seed_channel("UCok")
+    seed_channel("UCbad")
+    yt = FakeYouTube.new
+    yt.fail_channels << "UCbad"
+    reporter = RecordingReporter.new
+
+    result = Competitors::SnapshotCycle.new(
+      client: yt, thumbnail_fetcher: FakeThumbs.new, reporter:
+    ).call(scope: "all", now: NOW)
+
+    assert_equal 1, result[:channels] # the good channel still completed
+    assert_equal 1, reporter.warnings.size
+    assert_match(/UCbad/, reporter.warnings.sole)
   end
 end

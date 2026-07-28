@@ -18,6 +18,15 @@ compatibility that does not exist.
 
 ### Added
 
+- `primocut snapshot` and `primocut pipeline` now show what they are doing while
+  they do it: a live status line with the current phase, a progress bar, elapsed
+  time and — for the snapshot — the YouTube quota spent so far, with each finished
+  phase settling into a permanent line and its duration. The snapshot reports the
+  channel it is on and the sub-step within it (stats, uploads, videos, thumbnails
+  one by one, saving), so the longest silent stretches are no longer
+  indistinguishable from a hang. A channel that fails mid-cycle is now surfaced in
+  the terminal instead of only in the log. Piped or redirected output stays plain:
+  one line per phase, no escape codes, no redraw.
 - The Radar feed now shows what actually happened: each card names the competitor
   video behind the event, with its thumbnail, band tag (p90/p97/p99), the project
   badges of the channel that published it, the view/median metrics and the

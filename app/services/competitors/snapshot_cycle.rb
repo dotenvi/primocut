@@ -18,12 +18,18 @@ module Competitors
   class SnapshotCycle
     VALID_SCOPES = %w[all recent].freeze
 
+    # The channel loop dominates the cycle's wall time, so it owns most of the
+    # scale; the tail steps get the rest. Progress is a display concern only —
+    # nothing branches on it.
+    CHANNELS_SHARE = 70
+
     def initialize(client:, config: Config.new, metrics_config: Metrics::Config.new,
-                   thumbnail_fetcher: Thumbnails.method(:fetch_bytes))
+                   thumbnail_fetcher: Thumbnails.method(:fetch_bytes), reporter: LogReporter.new)
       @client = client
       @config = config
       @metrics_config = metrics_config
       @thumbnail_fetcher = thumbnail_fetcher
+      @reporter = reporter
     end
 
     # Run one cycle. `channel_id` limits it to a single (active) channel — used by
@@ -39,32 +45,43 @@ module Competitors
       targets = channels.to_a
 
       channels_done = videos_done = packaging_changes = 0
-      targets.each do |channel|
-        n_videos, n_changes = snapshot_channel(channel, scope:, since:, now:)
+      @reporter.update(stage: "Channels", progress: 0, detail: "0/#{targets.size}")
+      targets.each_with_index do |channel, index|
+        n_videos, n_changes = snapshot_channel(channel, scope:, since:, now:, index:, total: targets.size)
         channels_done += 1
         videos_done += n_videos
         packaging_changes += n_changes
       rescue StandardError => e # per-channel isolation: log and keep going
         Rails.logger.error("snapshot(#{scope}): channel #{channel.youtube_channel_id} failed: #{e.message}")
+        @reporter.warn("channel #{channel.youtube_channel_id} failed: #{e.message}")
         next
       end
+      # Closes the phase on its totals, so the line it leaves behind reads as a
+      # result rather than as whatever the last channel happened to be doing.
+      @reporter.update(
+        stage: "Channels", progress: CHANNELS_SHARE,
+        detail: "#{channels_done}/#{targets.size} · #{videos_done} video(s) · #{quota}"
+      )
 
       # Deterministic, offline persistence step: refresh the syntactic title
       # attributes for the processed channels and fill packaging impact for changes
       # whose window has elapsed. Isolated so a failure here never affects the
       # collected snapshots.
+      @reporter.update(stage: "Metrics artifacts", progress: 80, detail: quota)
       persist_metrics_artifacts(targets, now:)
 
       # Emission: record `outlier_crossed` for videos that stepped up a band, with
       # the anti-flapping guard. Reads the snapshots just persisted; isolated so a
       # scoring error never breaks the cycle. Comment collection below consumes the
       # events it writes.
+      @reporter.update(stage: "Outlier events", progress: 88, detail: quota)
       emit_outlier_events(targets, now:)
 
       # Comment collection: a sibling step that consumes the `outlier_crossed` events
       # just emitted (a video that crossed this cycle is collected in the same pass).
       # It spends quota but no LLM call, is internally isolated, and runs before the
       # quota is read so its units fold into the cycle's reported total.
+      @reporter.update(stage: "Comments", progress: 94, detail: quota)
       comments = collect_outlier_comments(targets, now:)
 
       result = {
@@ -72,6 +89,9 @@ module Competitors
         packaging_changes:, comments:, quota_units: @client.units_used
       }
       record_cycle_done(result, now:)
+      # No detail: the totals belong to the caller's summary, and repeating them
+      # one line above it is noise.
+      @reporter.update(stage: "Done", progress: 100)
 
       Rails.logger.info(
         "snapshot(#{scope}) done: #{channels_done} channel(s), #{videos_done} video(s), " \
@@ -82,10 +102,27 @@ module Competitors
 
     private
 
+    # Progress inside the channel loop. Each channel owns an equal slice of the
+    # phase's share and `fraction` places the sub-step within its own slice, so
+    # the bar advances smoothly instead of jumping once per channel.
+    def report(channel, index:, total:, step:, fraction: 0.0)
+      @reporter.update(
+        stage: "Channels",
+        progress: (CHANNELS_SHARE * (index + fraction) / total).round,
+        detail: "#{index + 1}/#{total} #{channel.handle || channel.youtube_channel_id} · #{step} · #{quota}"
+      )
+    end
+
+    # Quota is the cycle's real cost, so it is shown as it accrues rather than
+    # only in the closing summary.
+    def quota = "#{@client.units_used} quota"
+
     # Collect one channel. Returns [videos_snapshotted, packaging_changes].
-    def snapshot_channel(channel, scope:, since:, now:)
+    def snapshot_channel(channel, scope:, since:, now:, index:, total:)
       # -- 1. network reads (kept outside the write transaction) --
+      report(channel, index:, total:, step: "stats")
       stats = @client.get_channels_stats([ channel.youtube_channel_id ])
+      report(channel, index:, total:, step: "uploads", fraction: 0.15)
       top_ids = @client.list_uploads_video_ids(channel.uploads_playlist_id, limit: @config.uploads_scan_limit)
 
       existing_ids = channel.competitor_videos.pluck(:youtube_video_id)
@@ -96,13 +133,22 @@ module Competitors
       new_ids = top_ids - existing_ids
       # dedup while preserving order: scoped videos first, then newly detected ones
       target_ids = (scoped_ids + new_ids).uniq
+      report(channel, index:, total:, step: "videos", fraction: 0.3)
       videos = target_ids.any? ? @client.list_videos(target_ids) : []
-      hashes = videos.to_h { |v| [ v.video_id, Thumbnails.digest(v.thumbnail_url, fetcher: @thumbnail_fetcher) ] }
+
+      # One HTTP GET per video: the longest silent stretch of the cycle, so it is
+      # the one sub-step reported item by item.
+      hashes = videos.each_with_index.to_h do |v, i|
+        report(channel, index:, total:, step: "thumbs #{i + 1}/#{videos.size}",
+               fraction: 0.4 + (0.5 * (i + 1) / videos.size))
+        [ v.video_id, Thumbnails.digest(v.thumbnail_url, fetcher: @thumbnail_fetcher) ]
+      end
 
       existing_set = existing_ids.to_set
       changes = 0
 
       # -- 2. single write transaction for this channel --
+      report(channel, index:, total:, step: "saving", fraction: 0.95)
       ActiveRecord::Base.transaction do
         if stats.any?
           st = stats.first
