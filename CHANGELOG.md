@@ -72,7 +72,63 @@ compatibility that does not exist.
   only way to run the sidecar was to borrow a Python environment from outside the
   project; it is now buildable from the repository alone.
 
+- The Cut Room is the screen a processed video is cut on. A topic the analysis
+  found is triaged as maybe or discarded, and goes into the cut whole; a range
+  typed the way the room shows time ("1:05") goes in beside it. Items reorder and
+  come back out, the render turns each into its own MP4 in the background and
+  reports progress while it runs, and the export bundles the result as a zip.
+
+  The stage plays the source through the YouTube IFrame API, so every timestamp
+  on the page — in the transcript, on a topic, on a composed item — seeks it, and
+  the transcript is searchable in place. Once the clips exist, the stage also
+  plays the CUT: the clips concatenated into a single master by stream copy, under
+  a segment strip that seeks across it as one continuous file, which is what makes
+  previewing a six-item cut instant instead of six file loads. Playback is offered
+  only once every item is rendered, since a master missing an item would
+  misrepresent the composition. Composing answers with the two panels it changed
+  rather than a page, and a finishing render updates the composition and both
+  halves of the stage in one response — re-sending the player would tear the
+  iframe down and restart playback on every click.
+
+  Beside the composition sit the opt-in AI passes — titles, thumbnail briefs,
+  frame extraction and ranking, audience match — each an explicit click, because
+  each costs an LLM call. Every control that spends tokens now carries the
+  sparkle that says so before it is clicked.
+
+- yt-dlp can be given a logged-in YouTube session and a JavaScript runtime, which
+  between them answer the two failures that stop the pipeline dead while looking
+  like bugs in this app. `YTDLP_COOKIES` (an exported jar) or
+  `YTDLP_COOKIES_FROM_BROWSER` answers "Sign in to confirm you're not a bot" —
+  thrown per IP, and not something a retry, a newer yt-dlp or a player_client
+  fallback can talk its way out of. The file form is the one that works under
+  WSL2, where a browser profile on the Windows side is invisible to a Linux
+  yt-dlp. `YTDLP_JS_RUNTIMES=node` solves YouTube's signature challenge with an
+  existing Node instead of the deno yt-dlp enables by default; unsolved, YouTube
+  offers only storyboard images and yt-dlp reports "Requested format is not
+  available", which reads like a broken format selector and is not one. Both flags
+  reach the metadata call and the clip download alike.
+
+- `rake primocut:doctor` probes a real extraction, not just the binary.
+  `yt-dlp --version` proves the binary runs; it does not prove YouTube will answer
+  it, and because the bot-check is per IP the doctor reported a healthy
+  environment on a machine where every download died. It now asks YouTube for one
+  video's metadata using the same cookie and runtime flags the pipeline downloads
+  with, and names the cause it finds: cookies for the bot-check, the solver script
+  and a runtime for the JS challenge, and a cookie jar that cannot be read —
+  checked before the probe, because yt-dlp falls back to anonymous without
+  complaining and the failure would otherwise be blamed on the IP.
+
 ### Changed
+
+- The Cut Room's controller no longer holds what is not its own. Serving a video
+  by byte range is `VideoStreaming` + `Http::ByteRange` (a `Range` header is now
+  parsed by a pure function with tests of its own, instead of only through a
+  request); finding the topic an action names is the job of the service that acts
+  on it, so `Cuts::AddItem` takes `topic_id:` and `Cuts::Triage` — a class with
+  `#call` now, like every other service — resolves it off the source video, which
+  puts the guard against a topic from another video in the domain rather than in
+  the browser's path. `Cuts::ActiveCut` is gone as well: the cut a room opens on
+  is a property of the video, so it reads `source_video.active_cut`.
 
 - The Python sidecar is `sidecar/transcription_engine.py`, and its CLI answers to
   `transcription-engine`. It was `primocut_engine.py` / `primocut-engine`, which
@@ -121,6 +177,17 @@ compatibility that does not exist.
   `config/initializers/ruby_llm.rb` reads. `rake primocut:doctor` answered a
   missing key with "copy .env.example to .env and fill in ANTHROPIC_API_KEY" — an
   instruction the file made impossible to follow.
+- `bin/dev` now starts the job worker. Without it every enqueued job sat in
+  `solid_queue_ready_executions` and the screens that poll a status — the
+  pipeline, the render, the export, the packaging — spun forever on a state
+  nothing would ever advance. Nothing errored: the work simply never began.
+- The source-videos and tracked-channels lists navigate the page again. Both live
+  in a Turbo frame so they can poll while a run is in flight, and a link inside a
+  frame navigates that frame — so opening a source video's Cut Room, filtering by
+  the eye, opening the submit field, opening a channel's dashboard or detaching
+  one all fetched a destination that carries no such frame, and Turbo answered
+  with "Content missing" instead of a page. The frames now target the page. The
+  polling is unaffected, since reloading a frame is not a navigation.
 
 ## [0.5.0] - 2026-07-25
 
