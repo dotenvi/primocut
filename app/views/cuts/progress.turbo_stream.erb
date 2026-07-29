@@ -1,0 +1,16 @@
+<%#
+  One response, three panels — everything a render finishing changes, and nothing
+  else.
+
+  A frame can only reload itself, which is why the mode switcher used to sit stale
+  with PREVIEW CUT disabled after the clips were already on disk. These three are
+  targeted by id instead, so the update reaches outside the composition frame with
+  no page visit and no frame navigation.
+
+  Deliberately absent: the player (its iframe would be torn down and playback would
+  restart) and the transcript (thousands of segments, resent every couple of
+  seconds).
+%>
+<%= turbo_stream.replace "cut_composition" do %><%= render "cut" %><% end %>
+<%= turbo_stream.replace "stage_modes" do %><%= render "stage_modes" %><% end %>
+<%= turbo_stream.replace "stage_playback" do %><%= render "stage_playback" %><% end %>

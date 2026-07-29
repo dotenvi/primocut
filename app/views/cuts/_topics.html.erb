@@ -6,31 +6,47 @@
   stops. Same pattern as the source-videos row.
 %>
 <% analyzing = @source_video.analyzing? %>
-<%= turbo_frame_tag "cut_topics",
+<%#
+  `target: "_top"`: Adding a topic here changes the COMPOSITION, which is another frame —
+  a frame-scoped swap would leave the rest of the room showing stale state
+  until a manual reload. Polling is unaffected: reloading a frame is not a
+  navigation.
+%>
+<%= turbo_frame_tag "cut_topics", target: "_top",
       src: (analyzing ? project_topics_path(@project, @source_video) : nil),
       data: (analyzing ? { controller: "poll" } : {}) do %>
-  <section>
-    <div class="flex items-center justify-between gap-3 mb-3">
-      <div class="eyebrow">Topics <span class="text-ink-3">· <%= @topics.size %></span></div>
-      <%= button_to analyzing ? "Analyzing…" : (@topics.any? ? "Regenerate topics" : "Analyze topics"),
-            project_analyze_topics_path(@project, @source_video),
-            method: :post, disabled: analyzing, class: "btn btn-ai btn-xs",
-            form: { data: { turbo_confirm: (@topics.any? && !analyzing ? "Regenerating replaces the current topics and their triage. Continue?" : nil) } } %>
+  <section class="bg-card border border-line rounded-card overflow-hidden flex flex-col max-[1200px]:h-[440px] min-[1201px]:h-[calc(100vh-8.5rem)]">
+    <div class="px-4 py-3 border-b border-line flex items-center justify-between gap-3 shrink-0">
+      <div class="lbl text-accent">Topics <span class="text-ink-3">· <%= @room.topics.size %></span></div>
+      <%# The primary of this panel — the same weight as the render, because in its own
+          card this is the button everything else waits on. What sets it apart is the
+          sparkle, not the colour: it is the one control here that spends tokens. The
+          min-width holds the header still while the label swaps to its working form. %>
+      <%= button_to project_analyze_topics_path(@project, @source_video),
+            method: :post, disabled: analyzing,
+            class: "btn btn-soft btn-xs min-w-[104px] inline-flex items-center justify-center gap-1.5",
+            form: { class: "shrink-0",
+                    data: { turbo_confirm: (@room.topics.any? && !analyzing ? "Regenerating replaces the current topics and their triage. Continue?" : nil) } } do %>
+        <%= ai_icon %><%= busy_label(analyzing, @room.topics.any? ? "Regenerate topics" : "Generate topics", "Generating") %>
+      <% end %>
     </div>
 
-    <% if analyzing %>
-      <div class="card flex items-center gap-2 text-accent text-[13px]">
-        <span class="inline-block w-2 h-2 rounded-full bg-accent animate-pulse"></span>
-        Analyzing the transcript — topics will appear here as soon as they are ready.
-      </div>
-    <% elsif @topics.any? %>
-      <div class="flex flex-col gap-2 overflow-y-auto" style="max-height: calc(100vh - 15rem)">
-        <%= render partial: "topic", collection: @topics, as: :topic %>
-      </div>
-    <% elsif !@source_video.transcript %>
-      <p class="m text-ink-3">This video has no transcript yet — process it before analyzing topics.</p>
-    <% else %>
-      <p class="m text-ink-3">No topics yet. Use <em>Analyze topics</em> to let the AI segment the transcript.</p>
-    <% end %>
+    <%# `space-y`: the rows are cards, and cards touching each other read as one
+        block. A hair of air is enough to separate them without turning the bench
+        into a sparse list. %>
+    <div class="p-2 space-y-1.5 flex-1 overflow-y-auto min-h-0 scroll-quiet">
+      <% if analyzing %>
+        <div class="flex items-center gap-2 text-accent text-[13px] px-1.5 py-2">
+          <span class="inline-block w-2 h-2 rounded-full bg-accent animate-pulse"></span>
+          Analyzing the transcript — topics will appear here as soon as they are ready.
+        </div>
+      <% elsif @room.topics.any? %>
+        <%= render partial: "topic", collection: @room.topics, as: :topic %>
+      <% elsif !@source_video.transcript %>
+        <p class="m text-ink-3 px-1.5 py-2">This video has no transcript yet — process it before analyzing topics.</p>
+      <% else %>
+        <p class="m text-ink-3 px-1.5 py-2">No topics yet. Use <em>Analyze topics</em> to let the AI segment the transcript.</p>
+      <% end %>
+    </div>
   </section>
 <% end %>

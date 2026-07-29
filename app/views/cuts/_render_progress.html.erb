@@ -1,0 +1,46 @@
+<%#
+  What the render is doing, while it does it. Lives inside the composition card, so
+  it rides the frame that already polls — no second mechanism.
+
+  It answers the three questions a running render actually raises: how far, how
+  fast, how much longer. The rate and the elapsed time are MEASURED off the clips'
+  own timestamps; the remaining time is the only projection here and says so.
+
+  Local: render (a Cuts::RenderProgress::Result).
+%>
+<% if render.any? && render.started_at %>
+  <div class="px-4 py-2.5 border-b border-line flex flex-col gap-1.5">
+    <div class="h-1 bg-sunk rounded-full overflow-hidden">
+      <div class="h-full rounded-full transition-[width] duration-500
+                  <%= render.failed_count.positive? ? "bg-err" : (render.working? ? "bg-accent" : "bg-ok") %>"
+           style="width: <%= render.percent %>%"></div>
+    </div>
+
+    <div class="flex items-baseline justify-between gap-2 font-mono text-[10px]">
+      <span class="<%= render.working? ? "text-accent" : "text-ink-2" %>">
+        <%= render.done_count %> of <%= render.total_count %> rendered<%= " · #{render.failed_count} failed" if render.failed_count.positive? %>
+      </span>
+      <span class="text-ink-3 tabular-nums">
+        <%= clock(render.done_media_s) %> / <%= clock(render.total_media_s) %>
+      </span>
+    </div>
+
+    <%# The second line only appears once there is something measured to put on it. %>
+    <% facts = [
+         (render.working? ? eta_label(render) : nil),
+         ("#{ratio_label(render.throughput)} per second of video" if render.throughput),
+         bytes_label(render.bytes)
+       ].compact %>
+    <% if facts.any? %>
+      <div class="font-mono text-[10px] text-ink-3 tabular-nums"><%= facts.join(" · ") %></div>
+    <% end %>
+
+    <% if (working = render.working_item) %>
+      <div class="font-mono text-[10px] text-ink-2 truncate">
+        <span class="text-accent">▶</span>
+        item <%= working.cut_item.position + 1 %> ·
+        <%= clip_state_tag(working.clip) %>
+      </div>
+    <% end %>
+  </div>
+<% end %>

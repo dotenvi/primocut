@@ -1,15 +1,10 @@
 <% content_for :title, "Cut Room — #{@source_video.title.presence || @source_video.youtube_id}" %>
 
-<div class="flex items-end justify-between gap-3 mb-5">
-  <div>
-    <div class="eyebrow"><%= @project.name %> · Cut Room</div>
-    <h1 class="truncate max-w-[720px]"><%= @source_video.title.presence || @source_video.youtube_id %></h1>
-    <div class="m text-ink-3 mt-1">
-      <%= link_to @source_video.channel.presence || @source_video.youtube_id, @source_video.url, target: "_blank", rel: "noopener", class: "hover:text-ink-2" %>
-    </div>
-  </div>
-  <%= link_to "← Back", project_sources_path(@project), class: "btn" %>
-</div>
+<%= link_to "‹ #{@project.name} / Cut Room", project_sources_path(@project),
+      class: "eyebrow cursor-pointer hover:text-ink-2 mb-1 block no-underline" %>
+
+<div class="eyebrow text-accent mb-1">Cut room</div>
+<h1 class="mb-5"><%= @source_video.title.presence || @source_video.youtube_id %></h1>
 
 <% if flash[:notice] %>
   <div class="card mb-4 bg-accent-bg border-accent-line text-accent text-[13px]"><%= flash[:notice] %></div>
@@ -18,11 +13,27 @@
   <div class="card mb-4 bg-err-bg border-err-line text-err text-[13px]"><%= flash[:alert] %></div>
 <% end %>
 
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-  <%= render "topics" %>
-  <div class="flex flex-col gap-4">
+<%#
+  Three columns: stage (sticky) | topic bench (the scroll axis) | composition
+  (sticky). Above 1200px they sit side by side and the side columns stick while
+  the bench drives the page scroll; below, they stack. The cards fill the viewport
+  and scroll internally, so the page itself never grows with the content.
+%>
+<div class="grid grid-cols-1 gap-5 items-start min-[1201px]:grid-cols-[minmax(0,1fr)_440px_360px]">
+  <%= render "stage" %>
+
+  <%# The disclosure lives out here, one level above the frame it drives: composing
+      replaces the whole bench, and a controller inside it would forget which
+      summaries were open every time a topic was added. %>
+  <div class="min-[1201px]:sticky min-[1201px]:top-4 min-[1201px]:self-start" data-controller="disclosure">
+    <%= render "topics" %>
+  </div>
+
+  <div class="min-[1201px]:sticky min-[1201px]:top-4 min-[1201px]:self-start flex flex-col gap-2.5
+              min-[1201px]:max-h-[calc(100vh-8.5rem)] min-[1201px]:overflow-y-auto scroll-quiet">
+    <%# The export lives inside the composition: it acts on the same items, and its
+        button belongs beside Render. %>
     <%= render "cut" %>
-    <%= render "export" %>
     <%= render "packaging" %>
   </div>
 </div>

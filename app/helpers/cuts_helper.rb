@@ -1,4 +1,81 @@
 module CutsHelper
+  # The line under the render control. Before anything is rendered it says what
+  # rendering does; afterwards it reports what came out, because the clips are
+  # deliverables and nothing removes them for you.
+  def render_note(items)
+    clips = items.filter_map(&:clip)
+    rendered = clips.count(&:state_done?)
+    failed = clips.count(&:state_error?)
+    if rendered.zero?
+      "Renders in the background (NVENC, exact cuts) — keep deciding while clips are produced. " \
+        "Each item becomes its own MP4."
+    else
+      "#{rendered} of #{items.size} rendered#{" · #{failed} failed" if failed.positive?}. " \
+        "Clips are deliverables — nothing is cleaned up automatically."
+    end
+  end
+
+  # The label of a control whose work happens in the background: while it runs it
+  # says so, in the gerund, with the ellipsis that means "still going". One place,
+  # so the room's three long actions cannot drift into three different dialects.
+  def busy_label(working, idle, busy)
+    working ? "#{busy}…" : idle
+  end
+
+  # ---- render telemetry ----
+
+  # Bytes as the size a person reads off a file listing.
+  def bytes_label(bytes)
+    return nil unless bytes.to_i.positive?
+
+    mb = bytes / 1_048_576.0
+    mb >= 1024 ? "#{(mb / 1024).round(2)} GB" : "#{mb.round(1)} MB"
+  end
+
+  # Seconds of wall time, compact: a render item is minutes, not hours.
+  def secs_label(seconds)
+    return nil unless seconds.to_f.positive?
+
+    s = seconds.round
+    s < 60 ? "#{s}s" : "#{s / 60}m#{format('%02ds', s % 60)}"
+  end
+
+  # Real seconds spent per second of media produced. The honest unit of render cost:
+  # a 20s item and a 5min item are not comparable in raw seconds.
+  def ratio_label(ratio)
+    ratio ? "#{number_with_precision(ratio, precision: 2)}×" : nil
+  end
+
+  def bitrate_label(bits_per_s)
+    bits_per_s ? "#{(bits_per_s / 1_000_000.0).round(1)} Mb/s" : nil
+  end
+
+  # The one line that answers "how much longer" — always marked as an estimate,
+  # because it is the measured rate applied to what is left, not a promise.
+  def eta_label(render)
+    seconds = render.eta_s or return nil
+
+    "~#{secs_label(seconds)} left"
+  end
+
+  # A clip's telemetry, as the short mono line under its title. Nil when there is
+  # nothing measured yet, so the row stays quiet until it has something to say.
+  def clip_metrics(row)
+    if row.done
+      [ secs_label(row.wall_s), ratio_label(row.ratio), bytes_label(row.bytes) ].compact.join(" · ")
+    elsif row.working
+      [ secs_label(row.wall_s), "elapsed" ].compact.join(" ").presence
+    end
+  end
+
+  # Why the preview is not available yet. It plays the rendered clips, so it needs
+  # all of them — the count is the useful part while a render is in flight.
+  def preview_disabled_reason(room)
+    return "Add items to the cut, then render it to preview." if room.items.empty?
+
+    "Render the cut to preview it — #{room.rendered_items.size} of #{room.items.size} clips rendered."
+  end
+
   # A topic's triage opinion → the tag colours: kept ("maybe") reads as accent,
   # discarded is muted, open is neutral. `triage` is the TopicTriage or nil.
   def triage_tag(triage)

@@ -12,7 +12,7 @@ Rails.application.routes.draw do
   # Global navigation (cross-project) — the IA's top level.
   root "radar#show"
   post "radar/seen", to: "radar#mark_seen", as: :radar_seen
-  get "activity", to: "activity#show"
+  get  "activity", to: "activity#show"
 
   # Per-project navigation. Real content lands in Phase 2; these render shell
   # placeholders for now so the navigation is walkable end to end.
@@ -23,7 +23,7 @@ Rails.application.routes.draw do
     post "sources/:id/rerun", to: "sources#rerun", as: :rerun_source
 
     # The Cut Room, per source video. Built section by section: topics + triage first.
-    get  "sources/:source_video_id/cut_room", to: "cuts#show", as: :cut_room
+    get  "sources/:source_video_id/cutroom", to: "cuts#show", as: :cut_room
     get  "sources/:source_video_id/topics", to: "cuts#topics", as: :topics # live-progress frame
     post "sources/:source_video_id/topics/analyze", to: "cuts#analyze_topics", as: :analyze_topics
     post "sources/:source_video_id/topics/:topic_id/triage", to: "cuts#triage", as: :topic_triage
@@ -34,27 +34,29 @@ Rails.application.routes.draw do
     delete "sources/:source_video_id/cut/items/:id", to: "cuts#remove_item", as: :cut_item
     post   "sources/:source_video_id/cut/items/:id/move", to: "cuts#move_item", as: :move_cut_item
     post   "sources/:source_video_id/cut/render", to: "cuts#render_cut", as: :render_cut
+    get    "sources/:source_video_id/cut/progress", to: "cuts#progress", as: :cut_progress
+    get    "sources/:source_video_id/cut/master", to: "cuts#master", as: :cut_master
 
-    # The export bundle: enqueue, poll its status, download the zip.
-    get    "sources/:source_video_id/cut/export", to: "cuts#export_status", as: :cut_export
-    post   "sources/:source_video_id/cut/export", to: "cuts#export_cut"
+    # The export bundle: enqueue and download the zip. Its live status rides the
+    # composition's stream poll, so it needs no status route of its own.
+    post   "sources/:source_video_id/cut/export", to: "cuts#export_cut", as: :cut_export
     get    "sources/:source_video_id/cut/export/download", to: "cuts#download_export", as: :download_cut_export
 
     # Opt-in AI packaging: titles, briefs, frame extraction/ranking, audience match.
     get    "sources/:source_video_id/cut/packaging", to: "cuts#packaging_status", as: :cut_packaging
     post   "sources/:source_video_id/cut/packaging", to: "cuts#package"
-    get "niche",    to: "niche#show",     as: :niche
+    get    "niche",    to: "niche#show",     as: :niche
     # The tracked-channel list: its own frame, because it polls while a backfill
     # runs and must not drag the scored dashboard along every couple of seconds.
     # The opt-in AI analysis. Its cost is priced in a lazy frame so opening the
     # tab never waits on the scoring the price needs.
-    get  "niche/analysis", to: "analyses#show",   as: :niche_analysis
-    post "niche/analysis", to: "analyses#create"
+    get    "niche/analysis", to: "analyses#show",   as: :niche_analysis
+    post   "niche/analysis", to: "analyses#create"
     get    "niche/channels", to: "channels#index",  as: :niche_channels
     post   "niche/channels", to: "channels#create"
     delete "niche/channels/:channel_id", to: "channels#destroy"
-    get "niche/channels/:channel_id", to: "channels#show", as: :niche_channel
-    get "niche/channels/:channel_id/videos/:video_id", to: "videos#show", as: :niche_channel_video
+    get    "niche/channels/:channel_id", to: "channels#show", as: :niche_channel
+    get    "niche/channels/:channel_id/videos/:video_id", to: "videos#show", as: :niche_channel_video
     get    "settings", to: "settings#show",  as: :settings
     post   "settings/channels", to: "own_channels#create", as: :settings_channels
     delete "settings/channels/:id", to: "own_channels#destroy", as: :settings_channel

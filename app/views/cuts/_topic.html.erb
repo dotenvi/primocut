@@ -1,42 +1,71 @@
 <%#
-  One topic row: title, its [start–end] range and clip-potential score, the summary,
-  and the triage controls (Keep / Discard / Open). `@triage` maps topic_id to its
-  TopicTriage (nil = open). The active opinion is tagged; the buttons post to
-  CutsController#triage and reload the page.
-%>
-<% triage = @triage[topic.id] %>
-<div class="card <%= "opacity-60" if triage&.state == "discarded" %>">
-  <div class="flex items-start gap-3">
-    <div class="flex-1 min-w-0">
-      <div class="flex items-center gap-2">
-        <span class="text-ink truncate"><%= topic.title %></span>
-        <%= triage_tag(triage) %>
-      </div>
-      <div class="m text-ink-3 mt-0.5 font-mono">
-        <%= clock(topic.start_s) %>–<%= clock(topic.end_s) %> · potential <%= topic_score_label(topic) %>
-      </div>
-      <% if topic.summary.present? %>
-        <div class="m text-ink-2 mt-1"><%= topic.summary %></div>
-      <% end %>
-    </div>
+  One topic row: its title, the range it covers with its clip-potential score, and
+  the single control that matters — put it in the composition, or take it back out.
+  The same button does both, because "is this in the cut?" is one question.
 
-    <div class="flex items-center gap-1 shrink-0">
-      <%= button_to "Keep", project_topic_triage_path(@project, @source_video, topic),
-            method: :post, params: { state: "maybe" },
-            class: "btn btn-xs #{'chip on' if triage&.state == 'maybe'}" %>
-      <%= button_to "Discard", project_topic_triage_path(@project, @source_video, topic),
-            method: :post, params: { state: "discarded" },
-            class: "btn btn-xs #{'chip on' if triage&.state == 'discarded'}" %>
-      <% if triage %>
-        <%= button_to "Open", project_topic_triage_path(@project, @source_video, topic),
-              method: :post, params: { state: "open" }, class: "btn btn-xs" %>
+  The title is the disclosure. A summary is a paragraph, and a bench of twenty of
+  them expanded at once is a wall of text nobody reads; folded, the list is a list
+  again. The range's start seeks the source player, so a topic can be judged by
+  watching it rather than by reading about it.
+%>
+<% triage = @room.triage_for(topic) %>
+<% item = @room.item_for(topic) %>
+<div class="card <%= "opacity-60" if triage&.state == "discarded" %>">
+  <div class="flex items-center gap-2">
+    <%# The caret is the affordance, so the title itself needs no hover colour — the
+        row already lifts under the cursor, and a title that changes colour on hover
+        reads as a link to somewhere else rather than as a fold.
+        `group-aria-expanded`: the controller writes `aria-expanded` on this button as
+        the single source of truth for open/closed, so the caret turns off the same
+        attribute a screen reader announces — no second flag to keep in sync. %>
+    <button type="button" class="group flex-1 min-w-0 flex items-center gap-1.5 text-left text-ink cursor-pointer"
+            data-disclosure-target="trigger" data-key="<%= topic.id %>"
+            data-action="disclosure#toggle" aria-expanded="false"
+            aria-controls="topic_summary_<%= topic.id %>"
+            title="<%= topic.title %>">
+      <% if topic.summary.present? %>
+        <span class="text-[8px] text-ink-3 shrink-0 inline-block transition-transform duration-150
+                     group-aria-expanded:rotate-90" aria-hidden="true">▶</span>
       <% end %>
-      <% if @cut_topic_ids.include?(topic.id) %>
-        <span class="btn btn-xs opacity-50 pointer-events-none">Added</span>
-      <% else %>
-        <%= button_to "Add →", project_cut_items_path(@project, @source_video),
-              method: :post, params: { topic_id: topic.id }, class: "btn btn-ai btn-xs" %>
-      <% end %>
-    </div>
+      <span class="truncate"><%= topic.title %></span>
+    </button>
+
+    <%# Only when an opinion was actually recorded: an "Open" tag on every row is
+        noise, not information. %>
+    <%= triage_tag(triage) if triage %>
+
+    <%# One toggle in two states, so it is styled as one: the neutral button, and the
+        same button pressed. Not `btn-ai` — putting a topic in the cut is a local,
+        reversible edit, and the accent outline is reserved for what calls the model.
+        The shared min-width keeps the column of controls straight through the swap. %>
+    <% if item %>
+      <%# The confirm is asked only when there is a rendered clip to lose. Undoing a
+          click you just made should cost one click; discarding a deliverable should
+          not. %>
+      <%= button_to "✓ In cut", project_cut_item_path(@project, @source_video, item), method: :delete,
+            class: "btn btn-xs on min-w-[72px]", "aria-pressed": "true",
+            form: { class: "shrink-0", title: "Take out of the composition",
+                    data: { turbo_confirm: (item.clip ? "Remove this item and its clip?" : nil) } } %>
+    <% else %>
+      <%= button_to "Add →", project_cut_items_path(@project, @source_video),
+            method: :post, params: { topic_id: topic.id },
+            class: "btn btn-xs min-w-[72px]", "aria-pressed": "false",
+            form: { class: "shrink-0", title: "Add to the composition" } %>
+    <% end %>
   </div>
+
+  <div class="m text-ink-3 mt-0.5">
+    <button type="button" class="text-accent hover:text-accent-hi cursor-pointer"
+            data-controller="seek" data-seek-seconds-value="<%= topic.start_s %>"
+            data-action="seek#seek"
+            title="Play the source from here"><%= "#{clock(topic.start_s)}–#{clock(topic.end_s)}" %>
+    </button> <%= "· potential #{topic_score_label(topic)}" %>
+  </div>
+
+  <%# Full width, under everything: the summary is prose, and prose in the half of a
+      440px column left over by a button column is a stack of two-word lines. %>
+  <% if topic.summary.present? %>
+    <div id="topic_summary_<%= topic.id %>" class="m text-ink-2 mt-1.5 leading-relaxed"
+         data-disclosure-target="detail" data-key="<%= topic.id %>" hidden><%= topic.summary %></div>
+  <% end %>
 </div>

@@ -1,9 +1,9 @@
 <%#
   One cut item's packaging results: its generated titles, thumbnail brief one-liner
-  and best-ranked frame, each with a running/error badge. `@packaging` maps
+  and best-ranked frame, each with a running/error badge. `@room.packaging_for` maps
   cut_item_id → {kind → CutPackaging}. Everything is absent until generated.
 %>
-<% pk = @packaging[item.id] || {} %>
+<% pk = @room.packaging_for(item) %>
 <% titles = pk["title"]; brief = pk["thumb_brief"]; ranking = pk["frame_ranking"] %>
 <div class="rounded-md border border-line px-3 py-2">
   <div class="flex items-center gap-2">

@@ -1,31 +1,60 @@
 <%#
-  One cut item: its position, title (topic title or "Manual range"), time range and
-  the clip's render state, plus reorder (up/down), and remove. `count` is the number
-  of items, so the last item hides its "down" control.
+  One slot of the composition — a dense row, not a card: the column is 360px and
+  the list has to stay readable at a glance. The title seeks the player; the clip's
+  render state and what it cost take a second line under it, so the row itself
+  never grows.
+
+  Locals: row (a Cuts::RenderProgress::Item — the cut item plus its measurement),
+  count (so the last row hides its "down" control).
 %>
-<div class="card flex items-center gap-3">
-  <div class="font-mono text-ink-3 text-[12px] w-6 text-right"><%= item.position + 1 %></div>
+<% item = row.cut_item %>
+<div class="py-1.5 <%= "border-t border-line" unless item.position.zero? %>">
+  <div class="flex gap-2 items-center">
+    <span class="font-mono text-[9.5px] text-ink-3 w-3 shrink-0"><%= item.position + 1 %></span>
 
-  <div class="flex-1 min-w-0">
-    <div class="text-ink truncate"><%= item.topic&.title || "Manual range" %></div>
-    <div class="m text-ink-3 font-mono"><%= clock(item.start_s) %>–<%= clock(item.end_s) %></div>
-    <% if item.clip&.state_error? && item.clip.error.present? %>
-      <div class="m text-err truncate mt-0.5" title="<%= item.clip.error %>"><%= item.clip.error %></div>
-    <% end %>
+    <button type="button" class="flex-1 min-w-0 text-left text-[11.5px] truncate hover:text-accent cursor-pointer"
+            data-controller="seek" data-seek-seconds-value="<%= item.start_s %>" data-action="seek#seek"
+            title="<%= item.topic&.title || "Manual range" %>">
+      <%= item.topic&.title || "Manual range" %>
+    </button>
+
+    <span class="font-mono text-[9.5px] text-ink-3 shrink-0"><%= clock(item.end_s - item.start_s) %></span>
+
+    <%# `btn-icon`: the row's controls are glyphs, not buttons with boxes — twenty
+        bordered controls down a 360px column would read as the list's content
+        rather than its handles. One class, so the three cannot drift apart. %>
+    <span class="flex items-center shrink-0">
+      <% if item.position.positive? %>
+        <%= button_to "↑", project_move_cut_item_path(@project, @source_video, item),
+              method: :post, params: { direction: "up" }, class: "btn-icon",
+              form: { class: "inline", title: "Move up" } %>
+      <% end %>
+      <% if item.position < count - 1 %>
+        <%= button_to "↓", project_move_cut_item_path(@project, @source_video, item),
+              method: :post, params: { direction: "down" }, class: "btn-icon",
+              form: { class: "inline", title: "Move down" } %>
+      <% end %>
+      <%= button_to "✕", project_cut_item_path(@project, @source_video, item), method: :delete,
+            class: "btn-icon",
+            form: { class: "inline", title: "Remove",
+                    data: { turbo_confirm: "Remove this item and its clip?" } } %>
+    </span>
   </div>
 
-  <%= clip_state_tag(item.clip) %>
-
-  <div class="flex items-center gap-1 shrink-0">
-    <% if item.position.positive? %>
-      <%= button_to "↑", project_move_cut_item_path(@project, @source_video, item),
-            method: :post, params: { direction: "up" }, class: "btn btn-xs", form: { title: "Move up" } %>
+  <% if row.clip %>
+    <div class="flex gap-1.5 items-center mt-1 ml-5 min-w-0">
+      <%= clip_state_tag(row.clip) %>
+      <% if (metrics = clip_metrics(row)) %>
+        <%# Bitrate goes in the title rather than the line: it varies per scene under
+            constant-quality encoding, so it explains a size but does not rank next
+            to one in 360px. %>
+        <span class="font-mono text-[9.5px] text-ink-3 tabular-nums truncate"
+              title="<%= bitrate_label(row.bitrate) %>"><%= metrics %></span>
+      <% end %>
+    </div>
+    <%# A failed clip is the one state that is useless without its reason. %>
+    <% if row.error %>
+      <p class="font-mono text-[9.5px] text-err mt-0.5 ml-5 line-clamp-2" title="<%= row.error %>"><%= row.error %></p>
     <% end %>
-    <% if item.position < count - 1 %>
-      <%= button_to "↓", project_move_cut_item_path(@project, @source_video, item),
-            method: :post, params: { direction: "down" }, class: "btn btn-xs", form: { title: "Move down" } %>
-    <% end %>
-    <%= button_to "✕", project_cut_item_path(@project, @source_video, item),
-          method: :delete, class: "btn btn-xs", form: { title: "Remove", data: { turbo_confirm: "Remove this item and its clip?" } } %>
-  </div>
+  <% end %>
 </div>

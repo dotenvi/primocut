@@ -8,7 +8,13 @@
 <% items = @cut.cut_items.order(:position).includes(:topic) %>
 <% running = packaging_running?(@cut) %>
 <% working = running || flash[:working] %>
-<%= turbo_frame_tag "cut_packaging",
+<%#
+  `target: "_top"`: Every action here redirects with a flash, and the flash lives outside this frame —
+  a frame-scoped swap would leave the rest of the room showing stale state
+  until a manual reload. Polling is unaffected: reloading a frame is not a
+  navigation.
+%>
+<%= turbo_frame_tag "cut_packaging", target: "_top",
       src: (working ? project_cut_packaging_path(@project, @source_video) : nil),
       data: (working ? { controller: "poll" } : {}) do %>
   <section class="card">
@@ -18,14 +24,20 @@
 
     <% if items.any? %>
       <div class="flex flex-wrap gap-1.5 mb-3">
+        <%# Five equal actions, so none of them is the primary — they keep the accent
+            outline and carry the same sparkle as the topics pass: every one of them
+            spends tokens, and the glyph is what says so. %>
         <% { "title" => "Titles", "thumb_brief" => "Briefs", "frames" => "Extract frames", "rank" => "Rank frames", "audience" => "Match audience" }.each do |kind, label| %>
-          <%= button_to label, project_cut_packaging_path(@project, @source_video),
-                method: :post, params: { kind: kind }, disabled: running, class: "btn btn-ai btn-xs" %>
+          <%= button_to project_cut_packaging_path(@project, @source_video),
+                method: :post, params: { kind: kind }, disabled: running,
+                class: "btn btn-ai btn-xs inline-flex items-center gap-1.5" do %>
+            <%= ai_icon %><%= label %>
+          <% end %>
         <% end %>
       </div>
 
-      <% if @audience&.state_done? && @audience.payload.present? %>
-        <div class="m text-ink-2 mb-3">Audience match: <%= @audience.payload.size %> topic(s) deliver a requested thing.</div>
+      <% if @room.audience&.state_done? && @room.audience.payload.present? %>
+        <div class="m text-ink-2 mb-3">Audience match: <%= @room.audience.payload.size %> topic(s) deliver a requested thing.</div>
       <% end %>
 
       <div class="flex flex-col gap-2 overflow-y-auto" style="max-height: calc(100vh - 26rem)">

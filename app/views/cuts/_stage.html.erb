@@ -1,0 +1,69 @@
+<%#
+  Column 1 — the stage. Three modes:
+
+  SOURCE      the whole video from YouTube, with its transcript.
+  PREVIEW CUT the RENDERED CLIPS played back to back, in composition order. Real
+              cuts of the source, so the boundaries are the deliverable's — which
+              is why it is enabled only once every item has a rendered clip.
+  RENDERED    the exported master: the same composition as ONE file, no seams.
+
+  The preview deliberately does NOT drive the YouTube player across the source.
+  Seeking between spans can only ever jump, and a jump lands on a keyframe rather
+  than the cut point, so it shows boundaries the deliverable does not have.
+%>
+<% segments = @room.transcript_segments %>
+<% items = @room.items %>
+<div class="min-[1201px]:sticky min-[1201px]:top-4 min-[1201px]:self-start min-[1201px]:flex min-[1201px]:flex-col min-[1201px]:h-[calc(100vh-8.5rem)]"
+     data-controller="cut-preview" data-cut-preview-player-outlet="#cut-player"
+     data-action="player:seek@window->cut-preview#source">
+
+  <%= render "stage_modes" %>
+
+  <%# The YouTube player belongs to SOURCE alone now — the transcript seeks it.
+      The other two modes play real files and carry their own <video>.
+
+      `data-turbo-permanent` is not optional here. The API swaps [data-player-mount]
+      for an <iframe> at runtime, so the server's HTML and the live DOM no longer
+      agree; a morph would "correct" the iframe away and restart playback. %>
+  <div class="relative shrink-0" id="cut-player" data-turbo-permanent
+       data-cut-preview-target="panel" data-mode="source"
+       data-controller="player" data-player-video-id-value="<%= @source_video.youtube_id %>"
+       data-action="player:seek@window->player#seek">
+    <div class="player-frame"><div data-player-mount></div></div>
+  </div>
+
+  <%# ---- SOURCE: the transcript, filling the column and scrolling internally ---- %>
+  <div data-cut-preview-target="panel" data-mode="source"
+       class="bg-card border border-line rounded-card overflow-hidden flex flex-col mt-2.5 max-[1200px]:h-[440px] min-[1201px]:flex-1 min-[1201px]:min-h-0"
+       data-controller="transcript-search">
+    <div class="px-4 py-3 border-b border-line flex items-center gap-2 shrink-0">
+      <span class="lbl text-accent">Transcript</span>
+      <% if segments.any? %>
+        <span class="tag bg-card2 text-ink-2 border-line-strong"><%= segments.size %></span>
+        <input type="text" class="ml-auto max-w-[200px] text-[12px] py-1" placeholder="search the transcript…"
+               autocomplete="off" aria-label="Search the transcript"
+               data-transcript-search-target="query" data-action="input->transcript-search#filter">
+      <% end %>
+    </div>
+    <div class="px-4 py-3 flex-1 overflow-y-auto min-h-0 scroll-quiet">
+      <p class="m" data-transcript-search-target="empty" hidden>
+        No segment matches “<span data-transcript-search-target="term"></span>”.
+      </p>
+      <% if segments.empty? %>
+        <p class="m">
+          <%= @source_video.active? ? "Processing — the transcript appears as the pipeline finishes." : "No transcript for this video." %>
+        </p>
+      <% end %>
+      <% segments.each do |segment| %>
+        <p class="text-[13px] leading-relaxed mb-1.5" data-transcript-search-target="segment">
+          <button type="button" class="font-mono text-[11px] text-accent hover:text-accent-hi cursor-pointer align-baseline mr-1"
+                  data-controller="seek" data-seek-seconds-value="<%= segment["start"] %>"
+                  data-action="seek#seek"><%= clock(segment["start"]) %></button>
+          <span class="text-ink-2"><%= segment["text"] %></span>
+        </p>
+      <% end %>
+    </div>
+  </div>
+
+  <%= render "stage_playback" %>
+</div>

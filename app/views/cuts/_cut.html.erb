@@ -1,42 +1,143 @@
 <%#
-  The cut composition, wrapped in a self-refreshing turbo-frame. While the cut is
-  rendering (or any clip is still working) the frame carries a `src` and the poll
-  controller, so the clips' states update live; when the render settles it drops
-  both and polling stops. Mirrors the topics frame and the source-videos row.
+  The composition — the cut's items, the render, and the export, in the one card that
+  acts on them. Wrapped in a turbo-frame so adding and removing items can swap it on
+  its own.
+
+  Live progress does NOT come from reloading this frame: a render finishing also
+  changes the stage's mode switcher and brings the playback panel into existence, and
+  a frame reload cannot reach outside itself. So a stream poll (below) replaces this
+  panel AND those, in one response — and it covers the export too, which is why the
+  export no longer carries a frame of its own.
+
+  Both controls sit in the header, opposite the count they act on: RENDER produces the
+  clips, EXPORT packages them. The export's options live at the bottom with the other
+  composing controls, tied to the header's button by `form=` — the two cannot be one
+  element's worth of markup, because a <form> wrapping the header would nest inside
+  the render's own form, which is invalid HTML.
 %>
-<% items = @cut.cut_items.order(:position).includes(:clip, :topic) %>
-<% working = rendering?(@cut) %>
-<%= turbo_frame_tag "cut_composition",
-      src: (working ? project_cut_path(@project, @source_video) : nil),
-      data: (working ? { controller: "poll" } : {}) do %>
-  <section>
-    <div class="flex items-center justify-between gap-3 mb-3">
-      <div class="eyebrow"><%= @cut.name %> <span class="text-ink-3">· <%= items.size %> item(s)</span></div>
-      <% if items.any? %>
-        <%= button_to working ? "Rendering…" : "Render clips",
-              project_render_cut_path(@project, @source_video),
-              method: :post, disabled: working, class: "btn btn-pri btn-xs" %>
-      <% end %>
+<% items = @room.items %>
+<% export = @cut.export %>
+<% rendering = rendering?(@cut) %>
+<% building = exporting?(export) %>
+<% working = rendering || building %>
+<% rendered_any = @room.rendered_items.any? %>
+<%#
+  `target: "_top"`: Removing or adding an item here changes the TOPICS column, which is another frame —
+  a frame-scoped swap would leave the rest of the room showing stale state
+  until a manual reload. Polling is unaffected: reloading a frame is not a
+  navigation.
+%>
+<%= turbo_frame_tag "cut_composition", target: "_top" do %>
+  <div class="bg-card border border-line rounded-card">
+    <div class="px-4 py-3 border-b border-line flex items-center justify-between gap-3">
+      <%# The count belongs to the title, not to the buttons: it says what this panel
+          HOLDS, which is a caption on "Composition", while the right side is what you
+          can DO to it. Sitting between the two it read as a label on the render.
+          `min-w-0` + `truncate`: when the header runs short this side is what gives —
+          the controls keep their size, the caption loses its tail. %>
+      <div class="flex items-baseline gap-2 min-w-0 truncate">
+        <span class="lbl">Composition</span>
+        <span class="m"><%= items.size %> · <%= clock(@room.duration) %></span>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <% if items.any? %>
+          <%# The card's one primary: RENDER produces the clips, and until they exist
+              nothing else here can happen. EXPORT is the neutral second, same size.
+              `btn-soft`, not `btn-pri`: a saturated fill beside a 10px mono label is
+              a slab, and this header is mostly quiet. The min-width holds the pair
+              still while "Render clips" turns into its shorter working form. %>
+          <%= button_to busy_label(rendering, "Render clips", "Rendering"),
+                project_render_cut_path(@project, @source_video),
+                method: :post, disabled: rendering, class: "btn btn-soft btn-xs min-w-[80px]" %>
+          <%# Submits the options form at the bottom of the card. %>
+          <button type="submit" form="cut_export_form" class="btn btn-xs"
+                  <%= "disabled" if building || !rendered_any %>
+                  title="<%= "Render at least one clip first." unless rendered_any %>">
+            <%= busy_label(building, "Export", "Exporting") %>
+          </button>
+        <% end %>
+      </div>
     </div>
 
-    <% if items.any? %>
-      <div class="flex flex-col gap-2 overflow-y-auto mb-3" style="max-height: calc(100vh - 19rem)">
-        <%= render partial: "cut_item", collection: items, as: :item, locals: { count: items.size } %>
-      </div>
-    <% else %>
-      <p class="m text-ink-3 mb-3">Empty cut. Add topics from the left, or a manual range below.</p>
-    <% end %>
+    <%= render "render_progress", render: @room.render %>
 
-    <%= form_with url: project_cut_items_path(@project, @source_video), method: :post, class: "flex items-end gap-2" do |f| %>
-      <div>
-        <label class="eyebrow block mb-1">Start (s)</label>
-        <%= f.number_field :start_s, step: "any", min: "0", class: "w-24", placeholder: "0" %>
-      </div>
-      <div>
-        <label class="eyebrow block mb-1">End (s)</label>
-        <%= f.number_field :end_s, step: "any", min: "0", class: "w-24", placeholder: "0" %>
-      </div>
-      <%= f.submit "Add range", class: "btn btn-xs" %>
-    <% end %>
-  </section>
+    <div class="px-3 py-2.5">
+      <% if items.empty? %>
+        <p class="font-mono text-[10px] text-ink-3 px-1">Mark topics to cut and they stack here.</p>
+      <% else %>
+        <%# Rendered over the MEASURED rows, not the raw items: each row is an item
+            plus what its render cost, and the two belong on the same line. %>
+        <%= render partial: "cut_item", collection: @room.render.items, as: :row,
+              locals: { count: items.size } %>
+      <% end %>
+
+      <%# A disclosure, so the common path (marking topics) is not crowded by the
+          rare one. Native <details> — it opens without a round-trip. %>
+      <details class="mt-2.5 group">
+        <summary class="btn btn-xs w-full text-center list-none marker:hidden [&::-webkit-details-marker]:hidden group-open:hidden">
+          ＋ Add manual range
+        </summary>
+        <%= form_with url: project_cut_items_path(@project, @source_video), method: :post,
+              class: "flex gap-1.5 items-center pt-2.5 border-t border-line" do |f| %>
+          <%= f.text_field :start_s, placeholder: "0:00", class: "text-[11px] py-1 px-2", autocomplete: "off",
+                "aria-label": "Start" %>
+          <span class="m">→</span>
+          <%= f.text_field :end_s, placeholder: "0:30", class: "text-[11px] py-1 px-2", autocomplete: "off",
+                "aria-label": "End" %>
+          <%# Neutral: this submits two fields, while the card's accent is spoken for
+              by the render. %>
+          <%= f.submit "Add", class: "btn btn-xs shrink-0" %>
+        <% end %>
+      </details>
+
+      <%# The export's options, and whatever the last export left behind. The form
+          carries no submit of its own — the header's Export button is its submitter. %>
+      <% if items.any? %>
+        <div class="mt-2.5 pt-2.5 border-t border-line flex flex-col gap-2">
+          <%= form_with url: project_cut_export_path(@project, @source_video), method: :post,
+                id: "cut_export_form", class: "flex items-center gap-3 flex-wrap" do |f| %>
+            <label class="m text-ink-2 flex items-center gap-1.5 cursor-pointer">
+              <%= f.check_box :skip_master, { checked: false }, "1", "0" %> Skip master
+            </label>
+            <label class="m text-ink-2 flex items-center gap-1.5 cursor-pointer">
+              <%= f.check_box :upscale, { checked: false }, "1", "0" %> Upscale 1440p
+            </label>
+            <span class="ml-auto"><%= export_state_tag(export) %></span>
+          <% end %>
+
+          <% if export&.state_error? && export.error.present? %>
+            <p class="font-mono text-[9.5px] text-err line-clamp-2" title="<%= export.error %>"><%= export.error %></p>
+          <% end %>
+
+          <% if export&.state_done? && export.zip_rel_path.present? %>
+            <%# The primary of the result strip — a zone that exists only once there is
+                something to take home. Same weight as the render: one accent voice in
+                the room, so nothing here shouts over the panel it sits in. %>
+            <div class="flex items-center gap-2">
+              <%= link_to "Download zip", project_download_cut_export_path(@project, @source_video),
+                    class: "btn btn-soft btn-xs", data: { turbo: false } %>
+              <span class="m text-ink-3">
+                <%= pluralize(export.item_count, "clip") %><%= " · 1440p" if export.upscaled %><%= " · no master" if export.skip_master %>
+              </span>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+
+  <% if items.any? %>
+    <p class="font-mono text-[10px] text-ink-3 mt-2 leading-relaxed"><%= render_note(items) %></p>
+  <% end %>
+
+  <%#
+    The poller for BOTH passes. It lives INSIDE the frame it updates, so it is
+    self-terminating: the stream that carries the settled panel replaces this element
+    away, and polling stops with it — the same principle the frame `src` used, without
+    a page or frame navigation.
+  %>
+  <% if working %>
+    <div data-controller="stream-poll"
+         data-stream-poll-url-value="<%= project_cut_progress_path(@project, @source_video) %>" hidden></div>
+  <% end %>
 <% end %>

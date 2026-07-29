@@ -1,0 +1,10 @@
+<%#
+  The two panels a composition change touches, and nothing else.
+
+  Adding or removing an item changes the composition AND the bench (a topic gains
+  or loses its "Added" mark), but not the player and not the transcript — and
+  re-sending those would cost ~940KB and tear down the YouTube iframe, restarting
+  playback on every click. So the reply carries the two panels instead of a page.
+%>
+<%= turbo_stream.replace "cut_topics" do %><%= render "topics" %><% end %>
+<%= turbo_stream.replace "cut_composition" do %><%= render "cut" %><% end %>

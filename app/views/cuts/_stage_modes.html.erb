@@ -1,0 +1,26 @@
+<%#
+  The stage's mode switcher. A stream target (`stage_modes`), because what a mode is
+  backed by changes while you watch: rendering the cut brings CUT into existence.
+
+  Two modes, not three. The cut plays as its concatenated master either way, so
+  "preview" and "rendered" were never two things — the older split existed only
+  because the master used to wait for the export.
+
+  A mode with nothing behind it stays visible but disabled, carrying the reason:
+  hiding it would leave no hint that the cut can be played at all.
+%>
+<div id="stage_modes" class="flex items-center justify-between mb-2.5 shrink-0">
+  <%# `.seg`: a segmented control, styled once in the design system. The buttons carry
+      no classes of their own — the `on` the controller toggles is all that varies. %>
+  <div class="seg">
+    <% modes = [
+         [ "source", "Source", true, nil ],
+         [ "cut", "Cut", @room.playable?, preview_disabled_reason(@room) ]
+       ] %>
+    <% modes.each do |mode, label, enabled, reason| %>
+      <button type="button" data-mode="<%= mode %>" data-cut-preview-target="mode"
+              <%= "disabled" unless enabled %> title="<%= reason unless enabled %>"
+              data-action="cut-preview#show" data-cut-preview-mode-param="<%= mode %>"><%= label %></button>
+    <% end %>
+  </div>
+</div>

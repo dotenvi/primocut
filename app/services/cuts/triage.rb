@@ -3,19 +3,22 @@ module Cuts
   # clear back to "open" (no row). Shared across the source video's cuts; never
   # stores "in" (membership is derived from a cut's items). Ported from the PoC
   # triage repo.
-  module Triage
-    module_function
-
+  class Triage
     OPEN = "open".freeze
 
-    # Set the opinion. A nil / "open" state clears it (deletes the row).
-    def set(source_video, topic, state)
+    # Record the opinion. A nil / "open" state clears it (deletes the row). The
+    # topic is resolved here, off the source video, so an id belonging to another
+    # video cannot be triaged onto this one.
+    def call(source_video:, topic_id:, state:)
+      topic = source_video.topics.find(topic_id)
       return clear(source_video, topic) if state.nil? || state.to_s == OPEN
 
       triage = TopicTriage.find_or_initialize_by(source_video:, topic:)
       triage.update!(state: state.to_s)
       triage
     end
+
+    private
 
     def clear(source_video, topic)
       TopicTriage.where(source_video:, topic:).delete_all

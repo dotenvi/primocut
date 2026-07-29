@@ -1,0 +1,62 @@
+<%#
+  The cut, played as one file — a stream target (`stage_playback`), because it comes
+  into existence from a background render.
+
+  The master is the clips concatenated with a stream copy, so playback here is
+  seamless and scrubbing crosses the whole composition: it is the deliverable, not
+  a simulation of it. The strip below is a seek bar over that one file, each segment
+  jumping to where its item begins.
+
+  The wrapper is always present even when the panel is absent, because a stream
+  replace needs something to aim at. The transcript panel is deliberately NOT in
+  here: it is thousands of segments, and resending it every couple of seconds would
+  cost more than everything else on the screen combined.
+%>
+<% items = @room.items %>
+<div id="stage_playback" class="contents">
+  <% if @room.playable? %>
+    <div data-cut-preview-target="panel" data-mode="cut" class="shrink-0" hidden>
+      <%# The <video> is the source of truth for play state and position, so its own
+          events keep the label and the current segment honest — including when the
+          native controls or a drag on the scrub bar are what moved it. %>
+      <video data-cut-preview-target="video"
+             data-action="timeupdate->cut-preview#track play->cut-preview#label pause->cut-preview#label"
+             controls preload="metadata" playsinline
+             src="<%= project_cut_master_path(@project, @source_video) %>"
+             class="w-full rounded-card border border-line bg-black"></video>
+
+      <%# One segment per item, sized by its duration: the strip IS the composition's
+          shape, and each carries the second it starts at inside the master. %>
+      <div class="flex gap-[3px] h-7 mt-2.5">
+        <% @room.offsets.each_with_index do |offset, i| %>
+          <% item = items[i] %>
+          <button type="button" data-cut-preview-target="segment"
+                  data-action="cut-preview#jump" data-cut-preview-index-param="<%= i %>"
+                  data-at="<%= offset %>" data-until="<%= offset + (item.end_s - item.start_s) %>"
+                  data-title="<%= item.topic&.title || "Manual range" %>"
+                  title="<%= item.topic&.title || "Manual range" %> — starts at <%= clock(offset) %>"
+                  style="flex: <%= [ item.end_s - item.start_s, 1 ].max %>"
+                  class="rounded-[3px] flex items-center justify-center font-mono text-[9px] min-w-[10px] cursor-pointer
+                         bg-card2 text-ink-3 hover:bg-[#2a3138]
+                         [&.on]:bg-accent-bg [&.on]:text-accent [&.on]:shadow-[inset_0_0_0_1px_var(--color-accent-line)]"><%= i + 1 %></button>
+        <% end %>
+      </div>
+
+      <div class="flex justify-between mt-1.5">
+        <span class="m">composition · <%= pluralize(items.size, "item") %></span>
+        <span class="m"><%= clock(@room.duration) %></span>
+      </div>
+
+      <div class="flex items-center gap-2.5 mt-2.5">
+        <button type="button" class="btn btn-soft btn-xs" data-cut-preview-target="toggle"
+                data-action="cut-preview#toggle">▶ Play cut</button>
+        <span class="m" data-cut-preview-target="status"></span>
+      </div>
+
+      <p class="font-mono text-[10px] text-ink-3 leading-relaxed mt-2.5">
+        The clips concatenated with a stream copy — no re-encode, so this is frame-exact against
+        what you export. Click a segment to jump to that item.
+      </p>
+    </div>
+  <% end %>
+</div>
