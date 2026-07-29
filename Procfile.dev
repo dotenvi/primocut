@@ -1,2 +1,6 @@
 web: bin/rails server
 css: bin/rails tailwindcss:watch
+# Without this, every enqueued job sits in `solid_queue_ready_executions`
+# forever and the screens that poll a status (pipeline, render, export,
+# packaging) spin on a state nothing will ever advance.
+jobs: bin/jobs
