@@ -39,4 +39,21 @@ class SourceVideoTest < ActiveSupport::TestCase
     @project.source_videos.create!(youtube_id: "bbbbbbbbbbb", url: "https://y/b", status: "done")
     assert_equal [ a ], SourceVideo.active.to_a
   end
+
+  # Opening the room must not require having made a cut first, and opening it
+  # twice must not leave two.
+  test "active_cut creates the first cut lazily, then returns that same one" do
+    v = @project.source_videos.create!(youtube_id: "abcdefghijk", url: "https://y/1")
+
+    first = assert_difference("Cut.count", 1) { v.active_cut }
+    assert_no_difference("Cut.count") { assert_equal first, v.reload.active_cut }
+  end
+
+  test "active_cut is the oldest cut, whatever order they were asked for" do
+    v = @project.source_videos.create!(youtube_id: "abcdefghijk", url: "https://y/1")
+    oldest = v.cuts.create!(name: "Cut 1", created_at: 2.days.ago)
+    v.cuts.create!(name: "Cut 2", created_at: 1.day.ago)
+
+    assert_equal oldest, v.active_cut
+  end
 end
