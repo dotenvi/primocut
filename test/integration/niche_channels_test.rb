@@ -51,6 +51,14 @@ class NicheChannelsTest < ActionDispatch::IntegrationTest
     assert_select "form[action=?]", project_niche_channels_path(@project)
   end
 
+  test "the list navigates the page, not itself" do
+    track
+
+    get @path
+    # A channel link leads to its dashboard, which carries no such frame.
+    assert_select "turbo-frame#niche_channels[target=?]", "_top"
+  end
+
   test "a settled list does not poll" do
     track(state: "done")
 

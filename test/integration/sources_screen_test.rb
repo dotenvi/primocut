@@ -187,6 +187,17 @@ class SourcesScreenTest < ActionDispatch::IntegrationTest
     assert_select "main.max-w-\\[1160px\\]"
   end
 
+  test "the list navigates the page, not itself" do
+    video = source
+    Transcript.create!(source_video: video, segments: [], language: "pt")
+
+    get @path
+    # Every link in this frame leads out of it — the Cut Room, the url, the submit
+    # field. Without target=_top Turbo hunts for this frame in a page that has no
+    # such frame and renders "Content missing" instead of navigating.
+    assert_select "turbo-frame#source_videos[target=?]", "_top"
+  end
+
   test "every row offers to open its pipeline" do
     video = source
 
