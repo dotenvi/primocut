@@ -25,12 +25,16 @@ module Adapters
       base_cmd: self.class.default_base_cmd,
       ffmpeg_cmd: self.class.default_ffmpeg_cmd,
       player_clients: self.class.default_player_clients,
+      cookie_args: self.class.default_cookie_args,
+      js_runtime_args: self.class.default_js_runtime_args,
       retry_policy: Resilience::RetryPolicy.new
     )
       @shell = shell
       @base_cmd = base_cmd
       @ffmpeg_cmd = ffmpeg_cmd
       @player_clients = player_clients
+      @cookie_args = cookie_args
+      @js_runtime_args = js_runtime_args
       @retry_policy = retry_policy
     end
 
@@ -46,6 +50,39 @@ module Adapters
 
     def self.default_player_clients
       (ENV["YTDLP_PLAYER_CLIENTS"] || "").split(",").map(&:strip).reject(&:empty?)
+    end
+
+    # Cookies from a logged-in YouTube session — the answer to "Sign in to confirm
+    # you're not a bot", which YouTube throws per IP and which no player_client
+    # fallback can talk its way out of. Empty (the default) means anonymous.
+    #
+    # The FILE wins over the browser on purpose: `--cookies-from-browser` reads a
+    # browser profile off the LOCAL filesystem, so under WSL2 it finds nothing when
+    # the browser runs on the Windows side — the exported jar is the form that works
+    # there. Both are session credentials: point at a file only you can read.
+    def self.default_cookie_args(env = ENV)
+      file = env["YTDLP_COOKIES"].to_s.strip
+      return [ "--cookies", file ] if file.present?
+
+      browser = env["YTDLP_COOKIES_FROM_BROWSER"].to_s.strip
+      return [ "--cookies-from-browser", browser ] if browser.present?
+
+      []
+    end
+
+    # The JavaScript runtime yt-dlp solves YouTube's "n challenge" with. Without one
+    # the signature stays obfuscated and YouTube offers only storyboard images — the
+    # extraction fails with "Requested format is not available", which reads like a
+    # format-selector bug and is not one.
+    #
+    # Empty (the default) leaves yt-dlp's own default, which enables ONLY `deno`.
+    # Set this to `node` to use an existing Node instead of installing deno. The
+    # solver script is a separate piece: install `yt-dlp-ejs` beside yt-dlp (for a
+    # pipx install, `pipx inject yt-dlp yt-dlp-ejs`) so nothing is fetched — and no
+    # remote code executed — at download time.
+    def self.default_js_runtime_args(env = ENV)
+      runtimes = env["YTDLP_JS_RUNTIMES"].to_s.strip
+      runtimes.present? ? [ "--js-runtimes", runtimes ] : []
     end
 
     # -- pure helpers --
@@ -114,7 +151,7 @@ module Adapters
     # Collect metadata via `yt-dlp -J` (no media download), with transient retry.
     def fetch_metadata(url)
       data = Resilience.with_retry(policy: @retry_policy, label: "ytdlp.metadata") do
-        JSON.parse(@shell.capture([ *@base_cmd, "-J", "--no-warnings", url ]))
+        JSON.parse(@shell.capture([ *@base_cmd, "-J", "--no-warnings", *@cookie_args, *@js_runtime_args, url ]))
       end
       Metadata.new(
         youtube_id: data["id"] || self.class.extract_video_id(url),
@@ -204,7 +241,7 @@ module Adapters
         *@base_cmd, "-f", "bv*+ba/b",
         "--download-sections", format("*%.3f-%.3f", dl_start, dl_end),
         "--force-keyframes-at-cuts", "--merge-output-format", "mkv", "--no-warnings",
-        *extra, "-o", out_template, url
+        *@cookie_args, *@js_runtime_args, *extra, "-o", out_template, url
       ]
     end
 
@@ -223,7 +260,7 @@ module Adapters
       last = nil
       succeeded = attempts.any? do |extra|
         Resilience.with_retry(policy: @retry_policy, label: "ytdlp.audio") do
-          @shell.run([ *@base_cmd, "-f", "bestaudio/best", "--no-warnings", *extra, "-o", src_template, url ])
+          @shell.run([ *@base_cmd, "-f", "bestaudio/best", "--no-warnings", *@cookie_args, *@js_runtime_args, *extra, "-o", src_template, url ])
         end
         true
       rescue StandardError => e
