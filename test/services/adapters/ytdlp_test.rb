@@ -125,6 +125,72 @@ class Adapters::YtdlpTest < ActiveSupport::TestCase
     end
   end
 
+  # ------------------------- cookies -------------------------
+
+  test "default_cookie_args is empty when neither variable is set" do
+    assert_empty Ytdlp.default_cookie_args({})
+  end
+
+  test "default_cookie_args reads a browser profile" do
+    args = Ytdlp.default_cookie_args("YTDLP_COOKIES_FROM_BROWSER" => "firefox:default")
+    assert_equal [ "--cookies-from-browser", "firefox:default" ], args
+  end
+
+  # The file wins because --cookies-from-browser reads a LOCAL profile: under WSL2
+  # it finds nothing when the browser lives on the Windows side.
+  test "an exported cookie file wins over a browser profile" do
+    args = Ytdlp.default_cookie_args(
+      "YTDLP_COOKIES" => "/secrets/cookies.txt", "YTDLP_COOKIES_FROM_BROWSER" => "chrome"
+    )
+    assert_equal [ "--cookies", "/secrets/cookies.txt" ], args
+  end
+
+  test "blank variables are treated as unset, not as an empty flag value" do
+    assert_empty Ytdlp.default_cookie_args("YTDLP_COOKIES" => "   ", "YTDLP_COOKIES_FROM_BROWSER" => "")
+  end
+
+  test "default_js_runtime_args is empty, leaving yt-dlp's own default" do
+    assert_empty Ytdlp.default_js_runtime_args({})
+  end
+
+  test "default_js_runtime_args names the runtime to enable" do
+    assert_equal [ "--js-runtimes", "node" ], Ytdlp.default_js_runtime_args("YTDLP_JS_RUNTIMES" => "node")
+  end
+
+  # The bot-check hits metadata, audio and sections alike, so a cookie jar that
+  # reaches only some of them still leaves the pipeline broken somewhere. The JS
+  # runtime rides along for the same reason: the challenge gates every one of them.
+  test "cookies and the JS runtime reach metadata, the audio and the section download" do
+    cookies = [ "--cookies", "/secrets/cookies.txt" ]
+    js = [ "--js-runtimes", "node" ]
+
+    Dir.mktmpdir do |dir|
+      seen = []
+      shell = FakeShell.new do |kind, cmd|
+        seen << cmd
+        next '{"id":"abcdefghijk"}' if kind == :capture
+
+        File.write(File.join(dir, "section.mkv"), "sec") if cmd.include?("--force-keyframes-at-cuts")
+        File.write(File.join(dir, "vid00000001.src.webm"), "audio") if cmd.include?("bestaudio/best")
+        File.write(File.join(dir, "vid00000001.16k.wav"), "wav") if cmd.include?("-ar")
+      end
+      adapter = Ytdlp.new(shell: shell, cookie_args: cookies, js_runtime_args: js)
+
+      adapter.fetch_metadata("https://y/1")
+      adapter.download_audio("https://y/1", dir, video_id: "vid00000001")
+      adapter.download_section("https://y/1", dir, start_s: 1.0, end_s: 2.0, margin_s: 0.0, duration: 0.0)
+
+      ytdlp_calls = seen.reject { |cmd| cmd.include?("-ar") } # the ffmpeg pass takes neither
+      assert_equal 3, ytdlp_calls.size
+      ytdlp_calls.each do |cmd|
+        assert_equal cookies, cmd.each_cons(2).find { |a, _| a == "--cookies" },
+          "missing the cookie jar in: #{cmd.join(' ')}"
+        assert_equal js, cmd.each_cons(2).find { |a, _| a == "--js-runtimes" },
+          "missing the JS runtime in: #{cmd.join(' ')}"
+      end
+    end
+  end
+
   # ------------------------- section download -------------------------
 
   test "section_bounds widens by the margin and clamps to the duration" do
