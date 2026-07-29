@@ -75,10 +75,36 @@
   .eyebrow { @apply font-mono text-[10px] tracking-[0.14em] uppercase text-ink-3; }
   .lbl     { @apply font-mono text-[10px] tracking-[0.14em] uppercase text-ink-3; }
   .m       { @apply font-mono text-[11.5px] text-ink-2 tabular-nums; }
-  .btn     { @apply font-sans text-[12.5px] text-ink-2 bg-transparent border border-line-strong rounded-md px-3 py-1.5 cursor-pointer hover:bg-card2 hover:text-ink hover:border-[#3F4954] active:translate-y-px; }
+  /* `whitespace-nowrap`: a label is the button's size. Let it wrap and a two-word
+     control folds into two lines the moment a flex row runs short, while a one-word
+     one beside it cannot — so the row breaks unevenly and looks broken rather than
+     tight. Buttons hold their width; the caption beside them is what gives. */
+  .btn     { @apply font-sans text-[12.5px] text-ink-2 bg-transparent border border-line-strong rounded-md px-3 py-1.5 whitespace-nowrap cursor-pointer hover:bg-card2 hover:text-ink hover:border-[#3F4954] active:translate-y-px; }
   .btn-pri { @apply bg-accent border-accent text-accent-on font-medium hover:bg-accent-hi hover:border-accent-hi hover:text-accent-on; }
   .btn-ai  { @apply border-accent-line text-accent hover:bg-accent-bg hover:text-accent-hi hover:border-accent-line; }
   .btn-xs  { @apply px-2 py-0.5 text-[11px]; }
+  /* The primary of a dense panel. `btn-pri`'s saturated fill is a screen-level
+     weight: at 11px, among mono labels, it reads as a slab rather than a control.
+     This is the same accent spoken quietly — the room's own dialect (accent-bg, the
+     fill its tags already use), held above the toggle by a full-strength border. */
+  /* The border is held at partial strength on purpose: at full accent it out-contrasts
+     the neutral button beside it, and a high-contrast outline reads as a BIGGER
+     control even when the box is identical to the pixel. The fill carries the weight;
+     the edge only has to be legible. */
+  .btn-soft { @apply bg-accent-bg border-accent/25 text-accent-hi font-medium hover:bg-accent-line hover:text-accent-hi hover:border-accent/70; }
+  /* A pressed toggle — the button IS the state, not a second action beside it. */
+  .btn.on  { @apply bg-accent-bg border-accent-line text-accent hover:bg-accent-bg hover:text-accent-hi hover:border-accent-line; }
+  /* Written once, because the palette is custom: without this a disabled button is
+     indistinguishable from a live one, and half the room's controls disable while
+     they work. */
+  .btn:disabled { @apply opacity-50 cursor-not-allowed pointer-events-none; }
+  /* Row controls (reorder, remove). No border: a dense list of items cannot carry a
+     box around every glyph and still read as a list. */
+  .btn-icon { @apply font-mono text-[11px] leading-none text-ink-3 bg-transparent border-0 px-1 py-0.5 cursor-pointer hover:text-ink; }
+  /* A segmented control: one border around the group, dividers between. */
+  .seg { @apply inline-flex border border-line-strong rounded-md overflow-hidden; }
+  .seg > button { @apply font-mono text-[11px] px-3 py-1.5 text-ink-2 border-l border-line-strong first:border-l-0 not-disabled:cursor-pointer not-disabled:hover:bg-card2 disabled:text-ink-3 disabled:cursor-not-allowed; }
+  .seg > button.on { @apply bg-accent-bg text-accent; }
   .card    { @apply bg-card border border-line rounded-card px-4 py-3.5; }
   .chip    { @apply font-mono text-[11px] px-2.5 py-1 rounded-md border border-line text-ink-3 cursor-pointer hover:border-line-strong hover:text-ink-2; }
   .chip.on { @apply bg-card2 border-line-strong text-ink; }
@@ -96,6 +122,20 @@
   .st      { @apply w-2 h-2 rounded-full bg-[#2B323A] shrink-0; }
   .st-l    { @apply w-3.5 h-px bg-line-strong; }
 }
+
+/* Embedded YouTube player (the IFrame API replaces the inner div with an iframe). */
+.player-frame {
+  width: 100%; aspect-ratio: 16 / 9;
+  background: #000; border: 1px solid var(--color-line);
+  border-radius: var(--radius-card); overflow: hidden;
+}
+.player-frame iframe, .player-frame > div { width: 100%; height: 100%; border: 0; display: block; }
+
+/* The internal scrollbars of the Cut Room's columns: present, but quiet. */
+.scroll-quiet { scrollbar-width: thin; scrollbar-color: var(--color-line-strong) transparent; }
+.scroll-quiet::-webkit-scrollbar { width: 8px; }
+.scroll-quiet::-webkit-scrollbar-thumb { background: var(--color-line-strong); border-radius: 4px; }
+.scroll-quiet::-webkit-scrollbar-track { background: transparent; }
 
 /* Respect a reader's reduced-motion preference across every animation/transition. */
 @media (prefers-reduced-motion: reduce) {
