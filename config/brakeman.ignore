@@ -1,0 +1,29 @@
+{
+  "ignored_warnings": [
+    {
+      "warning_type": "File Access",
+      "warning_code": 16,
+      "fingerprint": "ce4ddf7f56ec6b27c157b63987565a454a28cdc026770f5f9a8751c589468226",
+      "check_name": "SendFile",
+      "message": "Parameter value used in file name",
+      "file": "app/controllers/cuts_controller.rb",
+      "line": 86,
+      "link": "https://brakemanscanner.org/docs/warning_types/file_access/",
+      "code": "send_file(Cuts::Bundle.new.call(:cut => Project.find(params[:project_id]).source_videos.find(params[:source_video_id]).active_cut), :type => \"application/zip\", :filename => File.basename(Cuts::Bundle.new.call(:cut => Project.find(params[:project_id]).source_videos.find(params[:source_video_id]).active_cut)))",
+      "render_path": null,
+      "location": {
+        "type": "method",
+        "class": "CutsController",
+        "method": "download_export"
+      },
+      "user_input": "params[:source_video_id]",
+      "confidence": "Weak",
+      "cwe_id": [
+        22
+      ],
+      "note": "False positive. The parameters in this trace only SELECT a record \u2014 the project, the source video, and through them the active cut. They are never path components. The path itself is Export#zip_rel_path, a column this application writes in Cuts::Export from a slug built by Cuts::Naming; no request can set it. Brakeman reports Weak confidence for exactly this reason: its dataflow reaches params and cannot see that the value it lands on comes from the database. Guarded anyway, in Cuts::Bundle#confined: the resolved path is proven to sit inside the exports directory before it is served, so a row pointing outside is treated as no bundle rather than as permission to read that file (test/services/cuts/bundle_test.rb covers it)."
+    }
+  ],
+  "updated": "2026-07-29 05:59:24 -0300",
+  "brakeman_version": "8.0.5"
+}
