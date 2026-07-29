@@ -4,8 +4,9 @@ require "timeout"
 module Diagnostics
   # Environment diagnostics for `rake primocut:doctor`. Validates what the app
   # needs to run end to end — GPU/CUDA (WSL2), FFmpeg (+ the optional NVENC
-  # encoder), yt-dlp, the Python transcription sidecar, the LLM key, the YouTube
-  # Data API key, and the database — and returns a list of [[Diagnostics::Check]].
+  # encoder), yt-dlp (both the binary AND YouTube actually answering it), the
+  # Python transcription sidecar, the LLM key, the YouTube Data API key, and the
+  # database — and returns a list of [[Diagnostics::Check]].
   # It installs nothing; it only reports, each failure carrying its fix command.
   #
   # Ported from the PoC `doctor.py`, minus Redis (Solid Queue replaced it) and the
@@ -18,13 +19,15 @@ module Diagnostics
       engine: -> { Adapters::TranscriptionEngine.new },
       youtube: -> { Adapters::YoutubeApi.from_env },
       env: ENV,
-      db: method(:default_db)
+      db: method(:default_db),
+      readable: ->(path) { File.readable?(path) }
     )
       @run = run
       @engine = engine
       @youtube = youtube
       @env = env
       @db = db
+      @readable = readable
     end
 
     def call
@@ -33,6 +36,7 @@ module Diagnostics
         check_ffmpeg,
         check_nvenc,
         check_ytdlp,
+        check_ytdlp_extraction,
         check_sidecar,
         check_llm_key,
         check_youtube,
@@ -92,6 +96,86 @@ module Diagnostics
       return fail(name, detail_of(res, "yt-dlp failed"), fix: "Reinstall yt-dlp; check YTDLP_CMD.") unless res.ok?
 
       pass(name, "yt-dlp #{res.out.strip.lines.first&.strip}")
+    end
+
+    # A version number proves the binary runs, not that YouTube will answer it —
+    # and "Sign in to confirm you're not a bot" is thrown per IP, so the binary
+    # check passes green while every real download dies. This asks YouTube for one
+    # video's metadata (`-J`, no media) so the bot-check surfaces HERE instead of
+    # mid-render, where it costs a stuck cut.
+    def check_ytdlp_extraction
+      name = "yt-dlp extraction"
+      cookies = Adapters::Ytdlp.default_cookie_args(@env)
+      unreadable = unreadable_cookie_jar(cookies)
+      # Checked BEFORE probing, because yt-dlp does not complain about a cookie file
+      # it cannot read — it drops to anonymous and comes back with the bot-check. The
+      # probe would then blame the IP and tell you to configure the cookies you
+      # already configured.
+      if unreadable
+        return fail(name, "the configured cookie jar cannot be read: #{unreadable}",
+                    fix: "Fix YTDLP_COOKIES — yt-dlp ignores an unreadable jar silently and " \
+                         "falls back to an anonymous request.")
+      end
+
+      # Probed with the SAME flags the pipeline downloads with — a probe that passes
+      # under a different configuration than the real thing measures nothing.
+      js = Adapters::Ytdlp.default_js_runtime_args(@env)
+      cmd = Adapters::Ytdlp.default_base_cmd + [ "-J", "--no-warnings", *cookies, *js, probe_url ]
+      res = @run.call(cmd, timeout: 120)
+      return fail(name, "yt-dlp is not on PATH", fix: "pipx install yt-dlp (or set YTDLP_CMD).") if res.missing?
+      return pass(name, "extraction ok#{cookie_note(cookies)}#{js_note(js)}") if res.ok?
+
+      detail = detail_of(res, "yt-dlp could not extract the probe video")
+      fail(name, detail, fix: extraction_fix(detail, cookies))
+    end
+
+    # The video the probe asks about: "Me at the zoo", the first video uploaded to
+    # YouTube (2005). Chosen for the one property that matters here — it is the
+    # least likely video on the platform to ever be taken down. Overridable all the
+    # same, since the check is about the extractor, not about this video.
+    def probe_url
+      @env["DOCTOR_PROBE_URL"].presence || "https://www.youtube.com/watch?v=jNQXAC9IVRw"
+    end
+
+    def cookie_note(cookies) = cookies.empty? ? " (anonymous)" : " (cookies: #{cookies.first.delete_prefix('--')})"
+
+    def js_note(js) = js.empty? ? "" : " (js: #{js.last})"
+
+    # The jar path, when one is configured and unreadable; nil otherwise. A browser
+    # profile (--cookies-from-browser) is yt-dlp's to locate, not ours.
+    def unreadable_cookie_jar(cookies)
+      return nil unless cookies.first == "--cookies"
+
+      path = cookies.last
+      @readable.call(path) ? nil : path
+    end
+
+    # The bot-check has one real remedy and it is not "retry" — say so, instead of
+    # sending the user to update yt-dlp for a block that is about the IP. And a dead
+    # probe video says nothing about the environment, so it must not read as one.
+    def extraction_fix(detail, cookies)
+      # YouTube withholds the real formats until its JS challenge is solved, and then
+      # reports the absence as a FORMAT problem. Taken at face value it sends you
+      # hunting a format selector that is not broken.
+      if detail.match?(/format is not available|No video formats|Only images|challenge/i)
+        return "yt-dlp could not solve YouTube's JS challenge, so only storyboard images were offered. " \
+               "Install a JS runtime and the solver script: `pipx inject yt-dlp yt-dlp-ejs`, then set " \
+               "YTDLP_JS_RUNTIMES=node (yt-dlp enables only deno by default). Installing the solver beside " \
+               "yt-dlp avoids --remote-components, which would fetch and run remote JS at download time."
+      end
+
+      if detail.match?(/unavailable|private|removed|does not exist|terminated/i)
+        return "The probe video itself is gone, which says nothing about your setup — " \
+               "point DOCTOR_PROBE_URL at any video that plays."
+      end
+
+      return "Update yt-dlp (`pipx upgrade yt-dlp`) — the YouTube extractor breaks often — " \
+             "or try another client via YTDLP_PLAYER_CLIENTS." unless detail.match?(/not a bot|Sign in to confirm|confirm your age|cookies/i)
+
+      base = "YouTube is challenging this IP, so no download will succeed until it is answered with a " \
+             "logged-in session: export cookies (Netscape format) and set YTDLP_COOKIES=/path/to/cookies.txt, " \
+             "or YTDLP_COOKIES_FROM_BROWSER=chrome when the browser runs on THIS machine."
+      cookies.empty? ? base : "#{base} The cookies currently configured (#{cookies.first}) were rejected — export them again from a logged-in session."
     end
 
     # The Python transcription sidecar reports its own health (faster-whisper +
