@@ -8,9 +8,13 @@
   The "track channel" form deliberately lives OUTSIDE this partial: it is not part
   of what polls, and a half-typed reference must not be wiped by a refresh.
   Locals: rows (Competitors::ChannelList::Row).
+  `target: "_top"` because the links inside lead out of this frame — a channel
+  opens its dashboard, and detaching redirects to a page whose flash lives outside
+  the frame. Without it Turbo cannot find this frame in the response and renders
+  "Content missing".
 %>
 <% collecting = rows.any?(&:collecting?) %>
-<%= turbo_frame_tag "niche_channels",
+<%= turbo_frame_tag "niche_channels", target: "_top",
       src: (project_niche_channels_path(@project) if collecting),
       data: (collecting ? { controller: "poll" } : {}) do %>
   <% if rows.empty? %>

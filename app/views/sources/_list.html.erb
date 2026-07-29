@@ -7,8 +7,13 @@
   The frame wraps the whole table because a frame inside a `tbody` is relocated
   out of the table by the parser — it cannot wrap a single row.
   Locals: sources (a Sources::Screen::Result).
+  `target: "_top"` because everything inside this frame navigates AWAY from it —
+  a row opens the Cut Room, the eye changes the url, the empty state opens the
+  submit field. Without it Turbo looks for this frame in a page that does not have
+  one and gives up with "Content missing". The poll is unaffected: reloading the
+  frame is not a navigation.
 %>
-<%= turbo_frame_tag "source_videos",
+<%= turbo_frame_tag "source_videos", target: "_top",
       src: (project_sources_list_path(@project, pipeline: params[:pipeline], new: params[:new]) if sources.polling?),
       data: (sources.polling? ? { controller: "poll" } : {}) do %>
   <% if sources.rows.empty? %>
