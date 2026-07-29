@@ -9,8 +9,23 @@ module Cuts
       export = cut.export
       raise NotReady, "That export is not ready." unless export&.state_done? && export.zip_rel_path.present?
 
-      path = File.join(Export.default_exports_dir, export.zip_rel_path)
+      path = confined(export.zip_rel_path)
       raise NotReady, "The export bundle is no longer on disk." unless File.exist?(path)
+
+      path
+    end
+
+    private
+
+    # The bundle is addressed by a path this app's own export job wrote, never by
+    # anything a request carries. It is still a path read out of a row and handed
+    # to `send_file`, so it is proven to land inside the exports directory before
+    # it is served: a row pointing anywhere else is treated as no bundle at all,
+    # rather than as permission to read that file.
+    def confined(rel_path)
+      root = File.expand_path(Export.default_exports_dir)
+      path = File.expand_path(File.join(root, rel_path))
+      raise NotReady, "That export is not ready." unless path.start_with?(root + File::SEPARATOR)
 
       path
     end
