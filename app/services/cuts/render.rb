@@ -70,10 +70,22 @@ module Cuts
       end
 
       Rails.logger.info("render(cut #{cut.id}) done: #{rendered} rendered, #{skipped} cached, #{failed} failed")
+      build_master(cut)
       Result.new(cut:, rendered:, skipped:, failed:)
     end
 
     private
+
+    # Concatenate the finished clips into the cut's master — seconds of stream copy
+    # at the end of minutes of encoding, and what the room actually plays. Degradable
+    # on purpose: the clips are the deliverables and they are already on disk, so a
+    # failure here must not turn a good render into a failed one.
+    def build_master(cut)
+      Master.new(ffmpeg: @ffmpeg, clips_dir: @clips_root.to_s).build(cut)
+    rescue StandardError => e
+      Rails.logger.error("render(cut #{cut.id}): the clips are fine but the master failed: #{e.message}")
+      nil
+    end
 
     # Render one item. Returns true if it re-encoded, false if the cache served it.
     def render_one(item, cut:, video:, url:, duration:, profile:, regenerate:)

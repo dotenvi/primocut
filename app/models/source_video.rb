@@ -42,4 +42,11 @@ class SourceVideo < ApplicationRecord
   def latest_job
     pipeline_jobs.order(:created_at).last
   end
+
+  # The cut being worked on — the oldest, which is the one the room opens on. It
+  # is created lazily, on that first visit: nobody should have to make an empty
+  # container before they can put anything in it.
+  def active_cut
+    cuts.reorder(:created_at, :id).first || cuts.create!(name: "Cut 1")
+  end
 end
