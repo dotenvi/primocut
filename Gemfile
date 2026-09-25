@@ -63,4 +63,4 @@ gem "ruby_llm", "~> 1.16"
 
 # Zip the export bundle (Cuts::Export). Declared explicitly rather than leaning on
 # a transitive copy.
-gem "rubyzip", "~> 3.0", require: "zip"
+gem "rubyzip", "~> 3.7", require: "zip"
