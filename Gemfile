@@ -59,7 +59,7 @@ group :test do
   gem "selenium-webdriver"
 end
 
-gem "ruby_llm", "~> 1.16"
+gem "ruby_llm", "~> 2.0"
 
 # Zip the export bundle (Cuts::Export). Declared explicitly rather than leaning on
 # a transitive copy.
